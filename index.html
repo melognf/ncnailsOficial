@@ -62,12 +62,12 @@
       outline: none;
     }
     .horarios {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-top: 15px;
-      display: none;
+     display: none; /* Oculto por defecto */
+     grid-template-columns: repeat(4, 1fr);
+     gap: 10px;
+     margin-top: 15px;
     }
+
     .horario-btn {
       padding: 8px;
       background: #eee;
@@ -224,6 +224,22 @@
 .gris {
   color: #6d685a;
 }
+
+@media (max-width: 600px) {
+  .horarios {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .horario-btn {
+    font-size: 0.95em;
+    padding: 10px;
+  }
+}
+
+.horario-btn {
+  width: 100%;
+}
+
   </style>
 </head>
 <body>
@@ -335,6 +351,7 @@
   // BLOQUEO MANUAL DE HORARIOS – MODIFICÁ ESTO PARA AGREGAR MÁS
 const bloqueados = {
   "2025-05-27": ["09:00", "13:30", "16:15"],
+  "2025-07-25": ["13:30", "13:45", "14:00", "14:15", "14:30", "14:45", "15:00", "15:15", "15:30", "14:45", "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30", "17:45"],
   // Agregá más fechas con horarios entre comillas. Formato 24hs: "HH:MM"
 };
 
