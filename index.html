@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <title>Reserva de Turno - Manicuría</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #ffffff;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      padding: 2rem;
+      background: #ded5bd;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
+      input,
+      select,
+      textarea,
+      button {
+        width: 100% !important;
+        box-sizing: border-box;
+      }
+      .horarios {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    h2 {
+      color: #6d685a;
+      text-align: center;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+    }
+    input,
+    select,
+    textarea {
+      padding: 10px;
+      width: 100%;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 1em;
+      transition: border 0.3s ease, box-shadow 0.3s ease;
+    }
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: #6d685a;
+      box-shadow: 0 0 5px #000;
+      outline: none;
+    }
+    .horarios {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 15px;
+      display: none;
+    }
+    .horario-btn {
+      padding: 8px;
+      background: #eee;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+      font-size: 0.9em;
+      transition: all 0.3s ease;
+      user-select: none;
+    }
+    .horario-btn:hover {
+      background-color: #e6dce3;
+      transform: scale(1.05);
+    }
+    .horario-btn.selected {
+      background-color: #6d685a;
+      color: white;
+      font-weight: bold;
+      transform: scale(1.08);
+    }
+    #aplicarHorario,
+    #editarTurnoBtn {
+      margin-top: 10px;
+      background-color: #6d685a;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+      font-size: 0.9em;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    #aplicarHorario:hover,
+    #editarTurnoBtn:hover {
+      background-color: #6d685a;
+      transform: scale(1.05);
+    }
+    button[type="submit"] {
+      background-color: #6d685a;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 5px;
+      width: 100%;
+      font-weight: bold;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    button[type="submit"]:hover {
+      transform: scale(1.03);
+    }
+    .success-message {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #000;
+      color: #ffffff;
+      border: 1px solid #d0e9c6;
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+      font-size: 1rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      position: relative;
+    }
+    .success-message.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .success-message.hidden {
+      display: none;
+    }
+    .success-message .checkmark {
+      font-size: 1.8rem;
+      margin-right: 10px;
+      color: #605b4f;
+    }
+    .success-message .close-msg {
+      background: transparent;
+      border: none;
+      font-size: 1.5rem;
+      color: #6d685a;
+      cursor: pointer;
+      margin-left: 15px;
+    }
+    .logo-container {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .logo-container img {
+      width: 100%;
+      max-width: 300px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      border-radius: 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .btn {
+    padding: 10px 20px;
+    margin: 5px;
+    background-color: #ff69b4;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .vista-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+  }
+
+  .botones-superiores {
+  display: flex;
+  width: 100%;
+}
+
+.btn-superior {
+  flex: 1;
+  padding: 1.7rem;
+  font-size: 1rem;
+  background-color: #ffffff;
+  color: #6d685a;
+  border: 1px solid #6d685a;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+
+@media (max-width: 600px) {
+  .btn-superior {
+    flex: 1 1 48%;
+  }
+}
+
+.btn-superior.activo {
+  background-color: #6d685a;
+  color: #ffffff;
+  border: none;
+}
+
+.gris {
+  color: #6d685a;
+}
+  </style>
+</head>
+<body>
+
+  <div class="logo-container">
+    <img src="imagenes/nc nails.jpg" alt="Logo de la empresa" />
+  </div>
+
+  <div class="botones-superiores">
+  <button class="btn-superior activo" id="btnReservas">Reservas</button>
+  <button class="btn-superior" id="btnPrecios">Info, Precios y Ubicación</button>
+</div>
+
+
+<div class="container" id="vistaReservas">
+    <h2>Reserva tu turno</h2>
+    <form id="formTurno">
+      <label for="nombre">Nombre completo:</label>
+      <input type="text" id="nombre" required />
+
+      <label for="telefono">Teléfono / WhatsApp:</label>
+      <input type="tel" id="telefono" required />
+
+      <label for="servicio">Seleccioná el servicio:</label>
+      <select id="servicio" required>
+        <option value="">-- Elegí una opción --</option>
+        <option value="Manicuría tradicional - $2500">Manicuría tradicional - $2600</option>
+        <option value="Manicuría + esmaltado tradicional - $5200">Manicuría + esmaltado tradicional - $5200</option>
+        <option value="Manicuría + esmaltado semipermanente - $3500">Manicuría + esmaltado semipermanente - $9500</option>
+        <option value="Capping con base rubber + esmaltado semipermanente hasta largo 2 $11500">Capping con base rubber + esmaltado semipermanente hasta largo 2- $11500</option>
+        <option value="Capping en acrygel/gel + esmaltado semipermanente hasta largo 2 - $12500">Capping en acrygel/gel + esmaltado semipermanente hasta largo 2 - $12500</option>
+        <option value="Extensiones en Soft Gel hasta largo 3 - $14000">Extensiones en Soft Gel hasta largo 3 - $14000</option>
+        <option value="Esculpidas hasta largo 2 - $14000">Esculpidas hasta largo 2 - $14000</option>
+        <option value="Retiro de esmaltado semipermante de otro salón - $3000">Retiro de esmaltado semipermante de otro salón - $3000</option>
+         <option value="Retiro de capping de otro salón - $4000">Retiro de capping de otro salón - $4000</option>
+        <option value="Retiro de esculpidas/Soft gel de otro salón - $4500">Retiro de esculpidas/Soft gel de otro salón - $4500</option>
+      </select>
+
+      <label for="fecha">Seleccioná la fecha:</label>
+      <input type="date" id="fecha" required />
+
+      <div class="horarios" id="horarios"></div>
+      <button type="button" id="aplicarHorario">Aplicar</button>
+      <button type="button" id="editarTurnoBtn">Editar</button>
+      <p id="detalleSeleccion" style="margin-top: 10px; font-weight: bold; color: #000;"></p>
+
+      <label class="gris" for="mensaje">Mensaje adicional (opcional):</label>
+      <textarea id="mensaje" rows="2"></textarea>
+
+      <button type="submit">Enviar solicitud por WhatsApp</button>
+    </form>
+
+    <div id="confirmacion" class="success-message hidden">
+      <span class="checkmark">✔</span>
+      <div>
+        <strong>¡Turno agendado!</strong><br />
+        Me comunicaré con vos para confirmar tu reserva 💅
+      </div>
+      <button class="close-msg" onclick="cerrarConfirmacion()">×</button>
+    </div>
+</div>
+
+<div class="container" id="vistaPrecios" style="display: none;">
+  <h2>Info, Precios y Ubicación</h2>
+  <p><strong>Dirección:</strong> Berlín 1405, Loma Hermosa (portón negro)</p>
+  <p><strong>Horarios de atención:</strong> Lunes a Sábado de 08:30 a 18:00</p>
+
+  <h3>Precios</h3>
+  <ul>
+    <li>Manicuría tradicional - $2600</li>
+    <li>Manicuría + esmaltado tradicional - $5200</li>
+    <li>Manicuría + esmaltado semipermanente - $9500</li>
+    <li>Capping con base rubber + esmaltado semipermante hasta largo 2 - $11500</li>
+    <li>Capping en acrygel/gel + esmaltado semipermanente hasta largo 2 - $12500</li>
+    <li>Extensiones en Soft Gel hasta largo 3 - $14000</li>
+    <li>Esculpidas hasta largo 2 - $14000</li>
+    <li>Retiro de esmaltado semipermante de otro salón - $3000</li>
+    <li>Retiro de capping de otro salón - $4000</li>
+    <li>Retiro de esculpidas/Soft gel de otro salón - $4500</li>
+  </ul>
+
+  <h3>Ubicación en el mapa</h3>
+  <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3285.4858767465594!2d-58.61140398925331!3d-34.56657047285484!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x95bcb92fd12cd157%3A0xb9bc557f3db0a0b3!2sNC%20nails!5e0!3m2!1ses!2sar!4v1747609405275!5m2!1ses!2sar" width="100%" height="300" style="border:0; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);" allowfullscreen=""
+    loading="lazy"
+    referrerpolicy="no-referrer-when-downgrade"></iframe>
+</div>
+
+<div class="container" id="vistaInfo" style="display: none;">
+  
+</div>
+
+<script>
+  const fechaInput = document.getElementById("fecha");
+  const horariosDiv = document.getElementById("horarios");
+  const aplicarBtn = document.getElementById("aplicarHorario");
+  const editarTurnoBtn = document.getElementById("editarTurnoBtn");
+  const detalleSeleccion = document.getElementById("detalleSeleccion");
+
+  const nombreInput = document.getElementById("nombre");
+  const telefonoInput = document.getElementById("telefono");
+  const servicioSelect = document.getElementById("servicio");
+  const mensajeInput = document.getElementById("mensaje");
+  const form = document.getElementById("formTurno");
+  const confirmacionDiv = document.getElementById("confirmacion");
+
+  let horarioSeleccionado = null;
+  let horarioConfirmado = null;
+
+  // BLOQUEO MANUAL DE HORARIOS – MODIFICÁ ESTO PARA AGREGAR MÁS
+const bloqueados = {
+  "2025-05-27": ["09:00", "13:30", "16:15"],
+  // Agregá más fechas con horarios entre comillas. Formato 24hs: "HH:MM"
+};
+
+
+  function esDomingo(fecha) {
+    return fecha.getDay() === 0;
+  }
+
+  function cargarHorarios() {
+  horariosDiv.innerHTML = "";
+  horarioSeleccionado = null;
+  horarioConfirmado = null;
+  detalleSeleccion.textContent = "";
+  aplicarBtn.style.display = "none";
+  editarTurnoBtn.style.display = "none";
+  horariosDiv.style.display = "grid";
+
+  const fechaValor = fechaInput.value;
+  if (!fechaValor) {
+    horariosDiv.style.display = "none";
+    return;
+  }
+
+  const fechaObj = new Date(fechaValor + "T00:00:00");
+  if (esDomingo(fechaObj)) {
+    alert("Los domingos no hay turnos disponibles.");
+    fechaInput.value = "";
+    horariosDiv.style.display = "none";
+    return;
+  }
+
+  const bloqueadosDeLaFecha = bloqueados[fechaValor] || [];
+
+  const inicio = 8 * 60 + 30; // 08:30
+  const fin = 18 * 60; // 18:00
+
+  for (let min = inicio; min <= fin; min += 15) {
+    const horas = Math.floor(min / 60).toString().padStart(2, "0");
+    const minutos = (min % 60).toString().padStart(2, "0");
+    const horaTexto = `${horas}:${minutos}`;
+
+    const boton = document.createElement("div");
+    boton.textContent = horaTexto;
+    boton.classList.add("horario-btn");
+
+    if (bloqueadosDeLaFecha.includes(horaTexto)) {
+      boton.style.backgroundColor = "#999";
+      boton.style.color = "#fff";
+      boton.style.cursor = "not-allowed";
+      boton.title = "Este horario está ocupado";
+    } else {
+      boton.addEventListener("click", () => {
+        document.querySelectorAll(".horario-btn").forEach(btn => btn.classList.remove("selected"));
+        boton.classList.add("selected");
+        horarioSeleccionado = horaTexto;
+        aplicarBtn.style.display = "inline-block";
+        editarTurnoBtn.style.display = "none";
+        detalleSeleccion.textContent = "";
+      });
+    }
+
+    horariosDiv.appendChild(boton);
+  }
+}
+
+
+  fechaInput.addEventListener("change", () => {
+    cargarHorarios();
+    aplicarBtn.style.display = "none";
+    editarTurnoBtn.style.display = "none";
+  });
+
+  aplicarBtn.addEventListener("click", () => {
+    if (!horarioSeleccionado) {
+      alert("Selecciona un horario primero.");
+      return;
+    }
+
+    const fecha = fechaInput.value;
+    if (!bloqueados[fecha]) {
+      bloqueados[fecha] = [];
+    }
+
+    // Evita duplicados
+    if (!bloqueados[fecha].includes(horarioSeleccionado)) {
+      bloqueados[fecha].push(horarioSeleccionado);
+      localStorage.setItem("horariosBloqueados", JSON.stringify(bloqueados));
+    }
+
+    horarioConfirmado = horarioSeleccionado;
+    detalleSeleccion.textContent = `Turno confirmado para el ${fecha} a las ${horarioConfirmado}`;
+    aplicarBtn.style.display = "none";
+    editarTurnoBtn.style.display = "inline-block";
+
+    // Bloquear todos los botones para evitar cambiar horario hasta editar
+    document.querySelectorAll(".horario-btn").forEach(btn => btn.style.pointerEvents = "none");
+
+  });
+
+  editarTurnoBtn.addEventListener("click", () => {
+    // Permite cambiar horario, elimina la confirmación previa
+    horarioConfirmado = null;
+    detalleSeleccion.textContent = "";
+    aplicarBtn.style.display = "none";
+    editarTurnoBtn.style.display = "none";
+    horarioSeleccionado = null;
+    cargarHorarios();
+  });
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+
+    if (!horarioConfirmado) {
+      alert("Por favor, confirma tu horario haciendo clic en 'Aplicar'.");
+      return;
+    }
+
+    // Validar datos obligatorios
+    if (!nombreInput.value.trim() || !telefonoInput.value.trim() || !servicioSelect.value || !fechaInput.value) {
+      alert("Por favor, completa todos los datos requeridos.");
+      return;
+    }
+
+    // Construir mensaje WhatsApp
+    const mensaje = 
+      `Hola, soy ${nombreInput.value.trim()}. Quiero reservar un turno para el ${fechaInput.value} a las ${horarioConfirmado}.\n` +
+      `Servicio: ${servicioSelect.value}.\n` +
+      (mensajeInput.value.trim() ? `Mensaje adicional: ${mensajeInput.value.trim()}` : "") + `\n` +
+      `Mi teléfono es ${telefonoInput.value.trim()}.`;
+
+    // Limpia número para WhatsApp
+    const telefonoLimpio = telefonoInput.value.replace(/\D/g, "");
+    const urlWhatsapp = `https://wa.me/549${1130669623}?text=${encodeURIComponent(mensaje)}`;
+
+    // Mostrar confirmación visual antes de abrir WhatsApp
+    mostrarConfirmacion();
+
+    // Abrir WhatsApp en nueva pestaña luego de un pequeño delay
+    setTimeout(() => {
+      window.open(urlWhatsapp, "_blank");
+    }, 1000);
+
+    // Opcional: Resetear formulario y horarios tras enviar
+    form.reset();
+    detalleSeleccion.textContent = "";
+    horarioConfirmado = null;
+    horarioSeleccionado = null;
+    horariosDiv.style.display = "none";
+    aplicarBtn.style.display = "none";
+    editarTurnoBtn.style.display = "none";
+    bloqueados = JSON.parse(localStorage.getItem("horariosBloqueados")) || {};
+  });
+
+  function mostrarConfirmacion() {
+    confirmacionDiv.classList.remove("hidden");
+    confirmacionDiv.classList.add("show");
+  }
+
+  function cerrarConfirmacion() {
+    confirmacionDiv.classList.remove("show");
+    confirmacionDiv.classList.add("hidden");
+  }
+
+  function mostrarVista(vista) {
+  const reservas = document.getElementById("vistaReservas");
+  const info = document.getElementById("vistaInfo");
+
+  if (vista === "reservas") {
+    reservas.style.display = "block";
+    info.style.display = "none";
+  } else if (vista === "info") {
+    reservas.style.display = "none";
+    info.style.display = "block";
+  }
+}
+const btnReservas = document.getElementById("btnReservas");
+const btnPrecios = document.getElementById("btnPrecios");
+const vistaReservas = document.querySelector(".container");
+const vistaPrecios = document.getElementById("vistaPrecios");
+
+btnReservas.addEventListener("click", () => {
+  vistaReservas.style.display = "block";
+  vistaPrecios.style.display = "none";
+  btnReservas.classList.add("activo");
+  btnPrecios.classList.remove("activo");
+});
+
+btnPrecios.addEventListener("click", () => {
+  vistaReservas.style.display = "none";
+  vistaPrecios.style.display = "block";
+  btnPrecios.classList.add("activo");
+  btnReservas.classList.remove("activo");
+});
+
+</script>
+
+</body>
+</html>
+
+
+
+
