@@ -381,20 +381,23 @@ const bloqueados = {
     boton.classList.add("horario-btn");
 
     if (bloqueadosDeLaFecha.includes(horaTexto)) {
-      boton.style.backgroundColor = "#999";
-      boton.style.color = "#fff";
-      boton.style.cursor = "not-allowed";
-      boton.title = "Este horario está ocupado";
-    } else {
-      boton.addEventListener("click", () => {
-        document.querySelectorAll(".horario-btn").forEach(btn => btn.classList.remove("selected"));
-        boton.classList.add("selected");
-        horarioSeleccionado = horaTexto;
-        aplicarBtn.style.display = "inline-block";
-        editarTurnoBtn.style.display = "none";
-        detalleSeleccion.textContent = "";
-      });
-    }
+  boton.textContent = `OCUPADO`;
+  boton.style.backgroundColor = "#999";
+  boton.style.color = "#fff";
+  boton.style.cursor = "not-allowed";
+  boton.title = "Este horario está ocupado";
+  // No le agregamos evento click para que no se pueda seleccionar
+} else {
+  boton.addEventListener("click", () => {
+    document.querySelectorAll(".horario-btn").forEach(btn => btn.classList.remove("selected"));
+    boton.classList.add("selected");
+    horarioSeleccionado = horaTexto;
+    aplicarBtn.style.display = "inline-block";
+    editarTurnoBtn.style.display = "none";
+    detalleSeleccion.textContent = "";
+  });
+}
+
 
     horariosDiv.appendChild(boton);
   }
@@ -425,7 +428,12 @@ const bloqueados = {
     }
 
     horarioConfirmado = horarioSeleccionado;
-    detalleSeleccion.textContent = `Turno confirmado para el ${fecha} a las ${horarioConfirmado}`;
+    // Convertir la fecha del input (formato YYYY-MM-DD) a DD/MM/YYYY
+const [anio, mes, dia] = fecha.split("-");
+const fechaFormateada = `${dia}/${mes}/${anio}`;
+
+detalleSeleccion.textContent = `Turno confirmado para el ${fechaFormateada} a las ${horarioConfirmado}`;
+
     aplicarBtn.style.display = "none";
     editarTurnoBtn.style.display = "inline-block";
 
