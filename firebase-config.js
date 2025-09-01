@@ -1,6 +1,6 @@
-// firebase-config.js (ES Modules con CDN)
+// firebase-config.js
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCtuepHop5O_yUVsqN4_-92ylxI0zecKdw",
@@ -12,5 +12,28 @@ const firebaseConfig = {
   measurementId: "G-9QJ1R8P9B9"
 };
 
-export const app = initializeApp(firebaseConfig);
-export const db  = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// Exponer una API global sencilla
+window.DB = {
+  guardarReserva: async ({ nombre, telefono, servicio, fecha, mensaje }) => {
+    const clean = {
+      nombre:   String(nombre||'').trim(),
+      telefono: String(telefono||'').trim(),
+      servicio: String(servicio||'').trim(),
+      // el input type="date" devuelve YYYY-MM-DD
+      fecha:    String(fecha||'').trim(),
+      mensaje:  String(mensaje||'').trim(),
+      estado:   'pendiente',
+      createdAt: serverTimestamp()
+    };
+    // validaciones mínimas
+    for (const k of ['nombre','telefono','servicio','fecha']) {
+      if (!clean[k]) throw new Error(`Falta el campo: ${k}`);
+    }
+    return addDoc(collection(db, 'reservas'), clean);
+  }
+};
+
+console.log('Firebase listo:', firebaseConfig.projectId);
