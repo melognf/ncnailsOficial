@@ -598,6 +598,42 @@
   // INIT
   construirGrilla();
   if (fechaInput && fechaInput.value) watchSlots(normFecha(fechaInput.value));
+
+  // ==== Tabs (Reservas / Precios) ====
+const btnReservas   = document.getElementById('btnReservas');
+const btnPrecios    = document.getElementById('btnPrecios');
+const vistaReservas = document.getElementById('vistaReservas');
+const vistaPrecios  = document.getElementById('vistaPrecios');
+
+function setTab(tab) {
+  const esReservas = (tab === 'reservas');
+  // Mostrar/ocultar vistas
+  vistaReservas.style.display = esReservas ? '' : 'none';
+  vistaPrecios.style.display  = esReservas ? 'none' : '';
+
+  // Estado visual de los botones
+  btnReservas.classList.toggle('activo', esReservas);
+  btnPrecios.classList.toggle('activo', !esReservas);
+
+  // Guardar y reflejar en la URL
+  try { localStorage.setItem('activeTab', esReservas ? 'reservas' : 'precios'); } catch(_) {}
+  history.replaceState(null, '', '#' + (esReservas ? 'reservas' : 'precios'));
+}
+
+// Clicks
+btnReservas.addEventListener('click', () => setTab('reservas'));
+btnPrecios.addEventListener('click',   () => setTab('precios'));
+
+// Al cargar, respetar #hash o último tab usado
+(() => {
+  const fromHash = location.hash.replace('#','');
+  let start = (fromHash === 'precios' || fromHash === 'reservas') ? fromHash : null;
+  if (!start) {
+    try { start = localStorage.getItem('activeTab'); } catch(_) {}
+  }
+  setTab(start === 'precios' ? 'precios' : 'reservas');
+})();
+
 </script>
 
 
