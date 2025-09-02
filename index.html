@@ -298,14 +298,13 @@
       <input type="date" id="fecha" required />
 
       <div class="horarios" id="horarios"></div>
-      <button type="button" id="aplicarHorario">Aplicar</button>
-      <button type="button" id="editarTurnoBtn">Editar</button>
+      
       <p id="detalleSeleccion" style="margin-top: 10px; font-weight: bold; color: #000;"></p>
 
       <label class="gris" for="mensaje">Mensaje adicional (opcional):</label>
       <textarea id="mensaje" rows="2"></textarea>
 
-      <button type="submit">Enviar solicitud por WhatsApp</button>
+      <button type="submit">Enviar RESERVA por WhatsApp</button>
     </form>
 
     <div id="confirmacion" class="success-message hidden">
@@ -349,257 +348,7 @@
 <script type="module" src="./firebase-config.js?v=1"></script>
 
 <script type="module">
-  // ==== CONFIG ====
-  const SLOT_MIN = 15;
-  const DURATION_MIN = 180; // 3 horas
-
-  // ==== REFS ====
-  const fechaInput       = document.getElementById("fecha");
-  const horariosDiv      = document.getElementById("horarios");
-  const aplicarBtn       = document.getElementById("aplicarHorario");
-  const editarTurnoBtn   = document.getElementById("editarTurnoBtn");
-  const detalleSeleccion = document.getElementById("detalleSeleccion");
-
-  const nombreInput      = document.getElementById("nombre");
-  const telefonoInput    = document.getElementById("telefono");
-  const servicioSelect   = document.getElementById("servicio");
-  const mensajeInput     = document.getElementById("mensaje");
-  const form             = document.getElementById("formTurno");
-  const confirmacionDiv  = document.getElementById("confirmacion");
-
-  // Estado
-  let horarioSeleccionado = null;
-  let horarioConfirmado   = null;
-  let unsubscribeSlots    = null;
-  let ocupadasSetActual   = new Set();
-
-  // ==== Helpers ====
-  const pad2 = n => String(n).padStart(2,"0");
-  const normFecha = f => (f && f.includes('/')) ? f.split('/').map(x=>x.padStart(2,'0')).reverse().join('-') : f;
-  const normHora  = h => { const m = String(h||'').match(/^(\d{1,2})(?::?(\d{2}))?$/); return m ? `${pad2(m[1])}:${pad2(m[2] ?? '00')}` : String(h||''); };
-  const fechaDDMMYYYY = iso => { if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; };
-  const hmToMin = hm => { const [H,M]=hm.split(':').map(Number); return H*60+(M||0); };
-  const minToHM = min => `${pad2(Math.floor(min/60))}:${pad2(min%60)}`;
-  const addMin  = (hm,a) => minToHM(hmToMin(hm)+a);
-
-  const slotsAReservar = (horaInicio) => {
-    const start = hmToMin(normHora(horaInicio));
-    const count = Math.ceil(DURATION_MIN / SLOT_MIN);
-    return Array.from({length:count},(_,i)=>minToHM(start+i*SLOT_MIN));
-  };
-
-  function clusterContiguo(hm) {
-    hm = normHora(hm);
-    if (!ocupadasSetActual.has(hm)) return [];
-    let start = hm, end = hm;
-    while (ocupadasSetActual.has(addMin(start, -SLOT_MIN))) start = addMin(start, -SLOT_MIN);
-    while (ocupadasSetActual.has(addMin(end,   SLOT_MIN))) end   = addMin(end,   SLOT_MIN);
-    const out=[]; for(let t=hmToMin(start); t<=hmToMin(end); t+=SLOT_MIN) out.push(minToHM(t));
-    return out;
-  }
-
-  // Firestore (lazy)
-  let FB=null;
-  async function fb(){ if(FB) return FB; FB = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'); return FB; }
-
-  // ==== UI ====
-  function construirGrilla() {
-    horariosDiv.innerHTML = "";
-    horarioSeleccionado = horarioConfirmado = null;
-    detalleSeleccion.textContent = "";
-    aplicarBtn.style.display = editarTurnoBtn.style.display = "none";
-
-    const fechaValor = fechaInput.value;
-    if (!fechaValor) { horariosDiv.style.display = "none"; return; }
-
-    const fObj = new Date(fechaValor+"T00:00:00");
-    if (fObj.getDay()===0) { alert("Los domingos no hay turnos disponibles."); fechaInput.value=""; horariosDiv.style.display="none"; return; }
-
-    horariosDiv.style.display = "grid";
-
-    const inicio = 8*60+30, fin = 18*60; // 08:30 → 18:00
-    for (let min=inicio; min<=fin; min+=15){
-      const h=pad2(Math.floor(min/60)), m=pad2(min%60), horaTxt=`${h}:${m}`;
-      const btn=document.createElement("div");
-      btn.textContent = horaTxt;
-      btn.dataset.horaOriginal = horaTxt;
-      btn.classList.add("horario-btn");
-
-      btn.addEventListener("click", async () => {
-        const fechaISO = normFecha(fechaInput.value);
-        const esOcupado = btn.classList.contains('ocupado');
-
-        // ← BORRAR SIMPLE: click en OCUPADO = confirmar + borrar cluster
-        if (esOcupado) {
-          const cluster = clusterContiguo(horaTxt);
-          if (!cluster.length) return;
-          const inicioC = cluster[0], finC = cluster[cluster.length-1];
-          const ok = confirm(`¿Liberar ${cluster.length} bloques?\nDesde ${inicioC} hasta ${finC}.`);
-          if (!ok) return;
-
-          try {
-            const { getFirestore, writeBatch, doc } = await fb();
-            const db = getFirestore();
-            const batch = writeBatch(db);
-            for (const hm of cluster) batch.delete(doc(db,'slots',`${fechaISO}T${hm}`));
-            await batch.commit(); // onSnapshot actualiza la UI
-          } catch (e) {
-            console.error('No se pudo borrar:', e);
-            alert('No se pudo borrar. Asegurate de PUBLICAR las reglas con delete en /slots.');
-          }
-          return;
-        }
-
-        // selección normal
-        document.querySelectorAll(".horario-btn").forEach(b=>b.classList.remove("selected"));
-        btn.classList.add("selected");
-        horarioSeleccionado = horaTxt;
-        aplicarBtn.style.display = "inline-block";
-        editarTurnoBtn.style.display = "none";
-        detalleSeleccion.textContent = "";
-      });
-
-      horariosDiv.appendChild(btn);
-    }
-  }
-
-  function marcarOcupadosUI(ocupadasSet){
-    ocupadasSetActual = ocupadasSet;
-    document.querySelectorAll(".horario-btn").forEach(btn=>{
-      const hora = normHora(btn.dataset.horaOriginal || btn.textContent.trim());
-      if (ocupadasSet.has(hora)){
-        btn.classList.add("ocupado");
-        btn.textContent = "OCUPADO";
-        btn.style.backgroundColor = "#000";
-        btn.style.color = "#fff";
-        btn.style.cursor = "pointer"; // importante para poder borrar
-        btn.title = "Click para liberar";
-        if (btn.classList.contains("selected")){
-          btn.classList.remove("selected");
-          horarioSeleccionado = null;
-          aplicarBtn.style.display = "none";
-          detalleSeleccion.textContent = "";
-        }
-      } else {
-        btn.classList.remove("ocupado");
-        btn.textContent = btn.dataset.horaOriginal || hora;
-        btn.style.backgroundColor = "";
-        btn.style.color = "";
-        btn.style.cursor = "pointer";
-        btn.title = "";
-      }
-    });
-  }
-
-  // ==== Firestore realtime ====
-  async function watchSlots(fechaISO){
-    if (unsubscribeSlots){ unsubscribeSlots(); unsubscribeSlots=null; }
-    if (!fechaISO) return;
-    const { getFirestore, collection, query, where, onSnapshot } = await fb();
-    const db = getFirestore();
-    const q = query(collection(db,'slots'), where('fecha','==', fechaISO));
-    unsubscribeSlots = onSnapshot(q, snap=>{
-      const ocupadas=new Set();
-      snap.forEach(d=>{ const h=d.data()?.hora; if(h) ocupadas.add(normHora(h)); });
-      marcarOcupadosUI(ocupadas);
-    }, err=>console.error('onSnapshot slots error:', err));
-  }
-
-  // ==== Eventos ====
-  fechaInput.addEventListener("change", ()=>{
-    const f = normFecha(fechaInput.value);
-    construirGrilla();
-    watchSlots(f);
-    aplicarBtn.style.display = editarTurnoBtn.style.display = "none";
-  });
-
-  aplicarBtn.addEventListener("click", ()=>{
-    if (!horarioSeleccionado){ alert("Seleccioná un horario primero."); return; }
-    horarioConfirmado = horarioSeleccionado;
-    const fBonita = fechaDDMMYYYY(fechaInput.value);
-    detalleSeleccion.textContent = `Turno confirmado para el ${fBonita} a las ${horarioConfirmado}`;
-    aplicarBtn.style.display = "none";
-    editarTurnoBtn.style.display = "inline-block";
-    document.querySelectorAll(".horario-btn").forEach(btn=>btn.style.pointerEvents="none");
-  });
-
-  editarTurnoBtn.addEventListener("click", ()=>{
-    horarioConfirmado = null;
-    detalleSeleccion.textContent = "";
-    aplicarBtn.style.display = "none";
-    editarTurnoBtn.style.display = "none";
-    document.querySelectorAll(".horario-btn").forEach(btn=>btn.style.pointerEvents="");
-  });
-
-  form.addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    if (!horarioConfirmado){ alert("Confirmá con 'Aplicar' antes de enviar."); return; }
-    if (!nombreInput.value.trim() || !telefonoInput.value.trim() || !servicioSelect.value || !fechaInput.value){
-      alert("Completá todos los datos requeridos."); return;
-    }
-
-    const fecha = normFecha(fechaInput.value);
-    const hora  = normHora(horarioConfirmado);
-    const payload = {
-      nombre: nombreInput.value.trim(),
-      telefono: telefonoInput.value.trim(),
-      servicio: servicioSelect.value,
-      fecha, hora,
-      mensaje: (mensajeInput.value || '').trim()
-    };
-    const horasABloquear = slotsAReservar(hora);
-
-    try{
-      const { getFirestore, collection, doc, runTransaction, serverTimestamp } = await fb();
-      const db = getFirestore();
-      const slotRefs = horasABloquear.map(hhmm=>doc(db,'slots',`${fecha}T${hhmm}`));
-      const resRef   = doc(collection(db,'reservas'));
-
-      await runTransaction(db, async tx=>{
-        for (const sRef of slotRefs){
-          const sSnap = await tx.get(sRef);
-          if (sSnap.exists()) throw new Error('Horario ocupado');
-        }
-        tx.set(resRef, { ...payload, duracionMin: DURATION_MIN, estado:'pendiente', createdAt: serverTimestamp() });
-        for (const sRef of slotRefs){
-          const hhmm = sRef.id.split('T')[1];
-          tx.set(sRef, { fecha, hora: hhmm, createdAt: serverTimestamp() });
-        }
-      });
-
-      const msgWA =
-        `Hola, soy ${payload.nombre}. Quiero reservar un turno para el ${fechaDDMMYYYY(payload.fecha)} a las ${payload.hora}.\n`+
-        `Servicio: ${payload.servicio}.\n`+
-        (payload.mensaje ? `Mensaje adicional: ${payload.mensaje}` : "")+`\n`+
-        `Mi teléfono es ${payload.telefono}.`;
-      const urlWhatsapp = `https://wa.me/549${1130669623}?text=${encodeURIComponent(msgWA)}`;
-
-      mostrarConfirmacion();
-      setTimeout(()=>window.open(urlWhatsapp,"_blank"),800);
-
-      form.reset();
-      detalleSeleccion.textContent = "";
-      horarioConfirmado = horarioSeleccionado = null;
-      horariosDiv.style.display = "none";
-      aplicarBtn.style.display = editarTurnoBtn.style.display = "none";
-    } catch(e){
-      console.error('Error al guardar/bloquear:', e);
-      const msg = (e?.code || e?.message || '').toString().toLowerCase();
-      if (msg.includes('permission') || msg.includes('denied')) alert('Permiso denegado por reglas de Firestore.');
-      else if (msg.includes('ocupado')) alert('Ese horario ya fue tomado. Elegí otro.');
-      else alert('No se pudo guardar la reserva. Revisá Firebase.');
-    }
-  });
-
-  function mostrarConfirmacion(){ confirmacionDiv.classList.remove("hidden"); confirmacionDiv.classList.add("show"); }
-  function cerrarConfirmacion(){  confirmacionDiv.classList.remove("show");   confirmacionDiv.classList.add("hidden"); }
-  window.cerrarConfirmacion = cerrarConfirmacion;
-
-  // INIT
-  construirGrilla();
-  if (fechaInput && fechaInput.value) watchSlots(normFecha(fechaInput.value));
-
-  // ==== Tabs (Reservas / Precios) ====
+// ==== Tabs (Reservas / Precios) — primero para que siempre funcionen ====
 const btnReservas   = document.getElementById('btnReservas');
 const btnPrecios    = document.getElementById('btnPrecios');
 const vistaReservas = document.getElementById('vistaReservas');
@@ -607,35 +356,257 @@ const vistaPrecios  = document.getElementById('vistaPrecios');
 
 function setTab(tab) {
   const esReservas = (tab === 'reservas');
-  // Mostrar/ocultar vistas
   vistaReservas.style.display = esReservas ? '' : 'none';
   vistaPrecios.style.display  = esReservas ? 'none' : '';
-
-  // Estado visual de los botones
   btnReservas.classList.toggle('activo', esReservas);
   btnPrecios.classList.toggle('activo', !esReservas);
-
-  // Guardar y reflejar en la URL
   try { localStorage.setItem('activeTab', esReservas ? 'reservas' : 'precios'); } catch(_) {}
   history.replaceState(null, '', '#' + (esReservas ? 'reservas' : 'precios'));
 }
-
-// Clicks
 btnReservas.addEventListener('click', () => setTab('reservas'));
 btnPrecios.addEventListener('click',   () => setTab('precios'));
-
-// Al cargar, respetar #hash o último tab usado
 (() => {
   const fromHash = location.hash.replace('#','');
   let start = (fromHash === 'precios' || fromHash === 'reservas') ? fromHash : null;
-  if (!start) {
-    try { start = localStorage.getItem('activeTab'); } catch(_) {}
-  }
+  if (!start) { try { start = localStorage.getItem('activeTab'); } catch(_) {} }
   setTab(start === 'precios' ? 'precios' : 'reservas');
 })();
 
-</script>
+// ==== CONFIG ====
+const SLOT_MIN = 15;
+const DURATION_MIN = 180; // 3 horas
 
+// ==== REFS ====
+const fechaInput       = document.getElementById("fecha");
+const horariosDiv      = document.getElementById("horarios");
+const detalleSeleccion = document.getElementById("detalleSeleccion");
+const nombreInput      = document.getElementById("nombre");
+const telefonoInput    = document.getElementById("telefono");
+const servicioSelect   = document.getElementById("servicio");
+const mensajeInput     = document.getElementById("mensaje");
+const form             = document.getElementById("formTurno");
+const confirmacionDiv  = document.getElementById("confirmacion");
+
+// Estado
+let horarioSeleccionado = null;
+let unsubscribeSlots    = null;
+let ocupadasSetActual   = new Set();
+
+// ==== Helpers ====
+const pad2 = n => String(n).padStart(2,"0");
+const normFecha = f => (f && f.includes('/')) ? f.split('/').map(x=>x.padStart(2,'0')).reverse().join('-') : f;
+const normHora  = h => { const m = String(h||'').match(/^(\d{1,2})(?::?(\d{2}))?$/); return m ? `${pad2(m[1])}:${pad2(m[2] ?? '00')}` : String(h||''); };
+const fechaDDMMYYYY = iso => { if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; };
+const hmToMin = hm => { const [H,M]=hm.split(':').map(Number); return H*60+(M||0); };
+const minToHM = min => `${pad2(Math.floor(min/60))}:${pad2(min%60)}`;
+const addMin  = (hm,a) => minToHM(hmToMin(hm)+a);
+
+const slotsAReservar = (horaInicio) => {
+  const start = hmToMin(normHora(horaInicio));
+  const count = Math.ceil(DURATION_MIN / SLOT_MIN);
+  return Array.from({length:count},(_,i)=>minToHM(start+i*SLOT_MIN));
+};
+
+function clusterContiguo(hm) {
+  hm = normHora(hm);
+  if (!ocupadasSetActual.has(hm)) return [];
+  let start = hm, end = hm;
+  while (ocupadasSetActual.has(addMin(start, -SLOT_MIN))) start = addMin(start, -SLOT_MIN);
+  while (ocupadasSetActual.has(addMin(end,   SLOT_MIN))) end   = addMin(end,   SLOT_MIN);
+  const out=[]; for(let t=hmToMin(start); t<=hmToMin(end); t+=SLOT_MIN) out.push(minToHM(t));
+  return out;
+}
+
+// Firestore (lazy)
+let FB=null;
+async function fb(){ if(FB) return FB; FB = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'); return FB; }
+
+// ==== UI ====
+function construirGrilla() {
+  horariosDiv.innerHTML = "";
+  horarioSeleccionado = null;
+  detalleSeleccion.textContent = "";
+
+  const fechaValor = fechaInput.value;
+  if (!fechaValor) { horariosDiv.style.display = "none"; return; }
+
+  const fObj = new Date(fechaValor+"T00:00:00");
+  if (fObj.getDay()===0) { alert("Los domingos no hay turnos disponibles."); fechaInput.value=""; horariosDiv.style.display="none"; return; }
+
+  horariosDiv.style.display = "grid";
+  const inicio = 8*60+30, fin = 18*60; // 08:30 → 18:00
+  for (let min=inicio; min<=fin; min+=15){
+    const h=pad2(Math.floor(min/60)), m=pad2(min%60), horaTxt=`${h}:${m}`;
+    const btn=document.createElement("div");
+    btn.textContent = horaTxt;
+    btn.dataset.horaOriginal = horaTxt;
+    btn.classList.add("horario-btn");
+
+    btn.addEventListener("click", async () => {
+      const fechaISO = normFecha(fechaInput.value);
+      const esOcupado = btn.classList.contains('ocupado');
+
+      // Borrado rápido de bloque(s) ocupados
+      if (esOcupado) {
+        const cluster = clusterContiguo(horaTxt);
+        if (!cluster.length) return;
+        const inicioC = cluster[0], finC = cluster[cluster.length-1];
+        const ok = confirm(`¿Liberar ${cluster.length} bloques?\nDesde ${inicioC} hasta ${finC}.`);
+        if (!ok) return;
+        try {
+          const { getFirestore, writeBatch, doc } = await fb();
+          const db = getFirestore();
+          const batch = writeBatch(db);
+          for (const hm of cluster) batch.delete(doc(db,'slots',`${fechaISO}T${hm}`));
+          await batch.commit();
+        } catch (e) {
+          console.error('No se pudo borrar:', e);
+          alert('No se pudo borrar. Publicá las reglas con delete en /slots.');
+        }
+        return;
+      }
+
+      // Selección normal (SIN "Aplicar")
+      document.querySelectorAll(".horario-btn").forEach(b=>b.classList.remove("selected"));
+      btn.classList.add("selected");
+      horarioSeleccionado = horaTxt;
+
+      const fBonita = fechaDDMMYYYY(fechaInput.value);
+      detalleSeleccion.textContent = `Vas a enviar una reserva para el ${fBonita} a las ${horarioSeleccionado}.`;
+    });
+
+    horariosDiv.appendChild(btn);
+  }
+}
+
+function marcarOcupadosUI(ocupadasSet){
+  ocupadasSetActual = ocupadasSet;
+  document.querySelectorAll(".horario-btn").forEach(btn=>{
+    const hora = normHora(btn.dataset.horaOriginal || btn.textContent.trim());
+    if (ocupadasSet.has(hora)){
+      btn.classList.add("ocupado");
+      btn.textContent = "OCUPADO";
+      btn.style.backgroundColor = "#000";
+      btn.style.color = "#fff";
+      btn.style.cursor = "pointer"; // importante para poder borrar
+      btn.title = "Click para liberar";
+      if (btn.classList.contains("selected")){
+        btn.classList.remove("selected");
+        horarioSeleccionado = null;
+        detalleSeleccion.textContent = "";
+      }
+    } else {
+      btn.classList.remove("ocupado");
+      btn.textContent = btn.dataset.horaOriginal || hora;
+      btn.style.backgroundColor = "";
+      btn.style.color = "";
+      btn.style.cursor = "pointer";
+      btn.title = "";
+    }
+  });
+}
+
+// ==== Firestore realtime ====
+async function watchSlots(fechaISO){
+  if (unsubscribeSlots){ unsubscribeSlots(); unsubscribeSlots=null; }
+  if (!fechaISO) return;
+  const { getFirestore, collection, query, where, onSnapshot } = await fb();
+  const db = getFirestore();
+  const q = query(collection(db,'slots'), where('fecha','==', fechaISO));
+  unsubscribeSlots = onSnapshot(q, snap=>{
+    const ocupadas=new Set();
+    snap.forEach(d=>{ const h=d.data()?.hora; if(h) ocupadas.add(normHora(h)); });
+    marcarOcupadosUI(ocupadas);
+  }, err=>console.error('onSnapshot slots error:', err));
+}
+
+// ==== Eventos ====
+fechaInput.addEventListener("change", ()=>{
+  const f = normFecha(fechaInput.value);
+  construirGrilla();
+  watchSlots(f);
+});
+
+form.addEventListener("submit", async (e)=>{
+  e.preventDefault();
+
+  if (!horarioSeleccionado){
+    alert("Seleccioná un horario primero.");
+    return;
+  }
+  if (!nombreInput.value.trim() || !telefonoInput.value.trim() || !servicioSelect.value || !fechaInput.value){
+    alert("Completá todos los datos requeridos.");
+    return;
+  }
+
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  const oldLabel = submitBtn.textContent;
+  submitBtn.textContent = "Enviando...";
+
+  const fecha = normFecha(fechaInput.value);
+  const hora  = normHora(horarioSeleccionado);
+  const payload = {
+    nombre: nombreInput.value.trim(),
+    telefono: telefonoInput.value.trim(),
+    servicio: servicioSelect.value,
+    fecha, hora,
+    mensaje: (mensajeInput.value || '').trim()
+  };
+  const horasABloquear = slotsAReservar(hora);
+
+  try{
+    const { getFirestore, collection, doc, runTransaction, serverTimestamp } = await fb();
+    const db = getFirestore();
+    const slotRefs = horasABloquear.map(hhmm=>doc(db,'slots',`${fecha}T${hhmm}`));
+    const resRef   = doc(collection(db,'reservas'));
+
+    await runTransaction(db, async tx=>{
+      for (const sRef of slotRefs){
+        const sSnap = await tx.get(sRef);
+        if (sSnap.exists()) throw new Error('Horario ocupado');
+      }
+      tx.set(resRef, { ...payload, duracionMin: DURATION_MIN, estado:'pendiente', createdAt: serverTimestamp() });
+      for (const sRef of slotRefs){
+        const hhmm = sRef.id.split('T')[1];
+        tx.set(sRef, { fecha, hora: hhmm, createdAt: serverTimestamp() });
+      }
+    });
+
+    const msgWA =
+      `Hola, soy ${payload.nombre}. Quiero reservar un turno para el ${fechaDDMMYYYY(payload.fecha)} a las ${payload.hora}.\n`+
+      `Servicio: ${payload.servicio}.\n`+
+      (payload.mensaje ? `Mensaje adicional: ${payload.mensaje}` : "")+`\n`+
+      `Mi teléfono es ${payload.telefono}.`;
+    const urlWhatsapp = `https://wa.me/549${1130669623}?text=${encodeURIComponent(msgWA)}`;
+
+    mostrarConfirmacion();
+    setTimeout(()=>window.open(urlWhatsapp,"_blank"),500);
+
+    form.reset();
+    detalleSeleccion.textContent = "";
+    horarioSeleccionado = null;
+    horariosDiv.style.display = "none";
+  } catch(e){
+    console.error('Error al guardar/bloquear:', e);
+    const msg = (e?.code || e?.message || '').toString().toLowerCase();
+    if (msg.includes('permission') || msg.includes('denied')) alert('Permiso denegado por reglas de Firestore.');
+    else if (msg.includes('ocupado')) alert('Ese horario ya fue tomado. Elegí otro.');
+    else alert('No se pudo guardar la reserva. Revisá Firebase.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = oldLabel;
+  }
+});
+
+function mostrarConfirmacion(){ confirmacionDiv.classList.remove("hidden"); confirmacionDiv.classList.add("show"); }
+function cerrarConfirmacion(){  confirmacionDiv.classList.remove("show");   confirmacionDiv.classList.add("hidden"); }
+window.cerrarConfirmacion = cerrarConfirmacion;
+
+// INIT
+construirGrilla();
+if (fechaInput && fechaInput.value) watchSlots(normFecha(fechaInput.value));
+</script>
 
 </body>
 </html>
