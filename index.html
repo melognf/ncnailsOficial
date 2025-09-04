@@ -255,6 +255,18 @@
   font-size: 11px; background: #111827; color: #fff; padding: 2px 6px; border-radius: 999px;
 }
 
+.slot {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:92px; height:40px; margin:6px; border:1px solid #bbb; border-radius:8px;
+  font:600 14px/1.2 system-ui, sans-serif; cursor:pointer; user-select:none;
+  background:#fff; transition:transform .05s ease, box-shadow .05s ease;
+}
+.slot:hover { transform:translateY(-1px); box-shadow:0 1px 0 rgba(0,0,0,.08); }
+.slot--selected { outline:2px solid #7c4dff; background:#f3ecff; }
+.slot--reservado { background:#666; color:#fff; border-color:#666; cursor:not-allowed; }
+.slot--bloqueado { background:#000; color:#fff; border-color:#000; cursor:not-allowed; }
+.slot--disabled { opacity:.45; pointer-events:none; }
+
 
   </style>
 </head>
@@ -377,8 +389,10 @@ btnPrecios.addEventListener('click',   () => setTab('precios'));
 })();
 
 // ==== CONFIG ====
-const SLOT_MIN = 15;
-const DURATION_MIN = 180; // 3 horas
+const SLOT_MIN = 30;                 // ← ahora cada 30 min
+const ADMIN_PIN = "noe";      // PIN para modo Admin oculto
+const HORARIO_INICIO_MIN = 8*60+30;  // 08:30
+const HORARIO_FIN_MIN    = 18*60;    // 18:00
 
 // ==== REFS ====
 const fechaInput       = document.getElementById("fecha");
@@ -391,10 +405,33 @@ const mensajeInput     = document.getElementById("mensaje");
 const form             = document.getElementById("formTurno");
 const confirmacionDiv  = document.getElementById("confirmacion");
 
+// ==== MODO ADMIN (oculto, con atajo Ctrl+Alt+P) ====
+let isAdmin = false;
+window.addEventListener('keydown', (e) => {
+  // evitar que en inputs dispare sin querer si el usuario escribe con AltGr (Windows)
+  if (['INPUT', 'TEXTAREA'].includes((document.activeElement?.tagName||'').toUpperCase())) return;
+  const key = e.key?.toLowerCase();
+  if (e.ctrlKey && e.altKey && key === 'p') {
+    e.preventDefault();
+    if (!isAdmin) {
+      const pin = prompt("Ingresá el PIN para modo Admin:");
+      if (pin && pin.trim() === ADMIN_PIN) {
+        isAdmin = true;
+        console.log('[NC Nails] Modo ADMIN ACTIVADO');
+      } else {
+        console.log('[NC Nails] PIN incorrecto');
+      }
+    } else {
+      isAdmin = false;
+      console.log('[NC Nails] Modo ADMIN DESACTIVADO');
+    }
+  }
+});
+
 // Estado
 let horarioSeleccionado = null;
 let unsubscribeSlots    = null;
-let ocupadasSetActual   = new Set();
+let ocupadasSetActual   = new Set(); // horas ocupadas (reservas + bloqueos)
 
 // ==== Helpers ====
 const pad2 = n => String(n).padStart(2,"0");
@@ -404,12 +441,6 @@ const fechaDDMMYYYY = iso => { if(!iso) return ''; const [y,m,d]=iso.split('-');
 const hmToMin = hm => { const [H,M]=hm.split(':').map(Number); return H*60+(M||0); };
 const minToHM = min => `${pad2(Math.floor(min/60))}:${pad2(min%60)}`;
 const addMin  = (hm,a) => minToHM(hmToMin(hm)+a);
-
-const slotsAReservar = (horaInicio) => {
-  const start = hmToMin(normHora(horaInicio));
-  const count = Math.ceil(DURATION_MIN / SLOT_MIN);
-  return Array.from({length:count},(_,i)=>minToHM(start+i*SLOT_MIN));
-};
 
 function clusterContiguo(hm) {
   hm = normHora(hm);
@@ -438,39 +469,62 @@ function construirGrilla() {
   if (fObj.getDay()===0) { alert("Los domingos no hay turnos disponibles."); fechaInput.value=""; horariosDiv.style.display="none"; return; }
 
   horariosDiv.style.display = "grid";
-  const inicio = 8*60+30, fin = 18*60; // 08:30 → 18:00
-  for (let min=inicio; min<=fin; min+=15){
+  for (let min=HORARIO_INICIO_MIN; min<=HORARIO_FIN_MIN; min+=SLOT_MIN){
     const h=pad2(Math.floor(min/60)), m=pad2(min%60), horaTxt=`${h}:${m}`;
     const btn=document.createElement("div");
     btn.textContent = horaTxt;
     btn.dataset.horaOriginal = horaTxt;
+    btn.dataset.estado = "libre";
     btn.classList.add("horario-btn");
 
     btn.addEventListener("click", async () => {
       const fechaISO = normFecha(fechaInput.value);
-      const esOcupado = btn.classList.contains('ocupado');
+      const estado = btn.dataset.estado;
 
-      // Borrado rápido de bloque(s) ocupados
-      if (esOcupado) {
-        const cluster = clusterContiguo(horaTxt);
-        if (!cluster.length) return;
-        const inicioC = cluster[0], finC = cluster[cluster.length-1];
-        const ok = confirm(`¿Liberar ${cluster.length} bloques?\nDesde ${inicioC} hasta ${finC}.`);
-        if (!ok) return;
+      // — ADMIN: bloquear/liberar manual —
+      if (isAdmin) {
+        // si está reservado, permito liberar bloque contiguo (con confirmación)
+        if (estado === "reservado") {
+          const cluster = clusterContiguo(horaTxt);
+          if (!cluster.length) return;
+          const inicioC = cluster[0], finC = cluster[cluster.length-1];
+          const ok = confirm(`¿Liberar ${cluster.length} bloques?\nDesde ${inicioC} hasta ${finC}.`);
+          if (!ok) return;
+          try {
+            const { getFirestore, writeBatch, doc } = await fb();
+            const db = getFirestore();
+            const batch = writeBatch(db);
+            for (const hm of cluster) batch.delete(doc(db,'slots',`${fechaISO}T${hm}`));
+            await batch.commit();
+          } catch (e) {
+            console.error('No se pudo borrar:', e);
+            alert('No se pudo borrar. Verificá reglas de Firestore.');
+          }
+          return;
+        }
+
+        // libre ↔ bloqueado
         try {
-          const { getFirestore, writeBatch, doc } = await fb();
+          const { getFirestore, doc, setDoc, deleteDoc, serverTimestamp, getDoc } = await fb();
           const db = getFirestore();
-          const batch = writeBatch(db);
-          for (const hm of cluster) batch.delete(doc(db,'slots',`${fechaISO}T${hm}`));
-          await batch.commit();
+          const id = `${fechaISO}T${horaTxt}`;
+          const ref = doc(db,'slots', id);
+          const snap = await getDoc(ref);
+          if (estado === "bloqueado") {
+            await deleteDoc(ref);
+          } else if (estado === "libre") {
+            if (snap.exists()) return; // alguien lo tomó entre medio
+            await setDoc(ref, { fecha: fechaISO, hora: horaTxt, tipo: 'bloqueado', createdAt: serverTimestamp() });
+          }
         } catch (e) {
-          console.error('No se pudo borrar:', e);
-          alert('No se pudo borrar. Publicá las reglas con delete en /slots.');
+          console.error('Bloqueo manual falló:', e);
+          alert('No se pudo bloquear/desbloquear.');
         }
         return;
       }
 
-      // Selección normal (SIN "Aplicar")
+      // — CLIENTE: seleccionar SOLO 1 slot libre —
+      if (estado !== "libre") return;
       document.querySelectorAll(".horario-btn").forEach(b=>b.classList.remove("selected"));
       btn.classList.add("selected");
       horarioSeleccionado = horaTxt;
@@ -483,17 +537,20 @@ function construirGrilla() {
   }
 }
 
-function marcarOcupadosUI(ocupadasSet){
-  ocupadasSetActual = ocupadasSet;
+function marcarOcupadosUI(statusMap){ // Map<hm, 'reservado'|'bloqueado'>
+  ocupadasSetActual = new Set(statusMap.keys());
   document.querySelectorAll(".horario-btn").forEach(btn=>{
     const hora = normHora(btn.dataset.horaOriginal || btn.textContent.trim());
-    if (ocupadasSet.has(hora)){
+    const tipo = statusMap.get(hora) || 'libre';
+    btn.dataset.estado = tipo;
+
+    if (tipo === 'reservado' || tipo === 'bloqueado'){
       btn.classList.add("ocupado");
       btn.textContent = "OCUPADO";
       btn.style.backgroundColor = "#000";
       btn.style.color = "#fff";
-      btn.style.cursor = "pointer"; // importante para poder borrar
-      btn.title = "Click para liberar";
+      btn.style.cursor = isAdmin ? "pointer" : "not-allowed";
+      btn.title = isAdmin ? "Click para liberar/bloquear" : "No disponible";
       if (btn.classList.contains("selected")){
         btn.classList.remove("selected");
         horarioSeleccionado = null;
@@ -518,9 +575,14 @@ async function watchSlots(fechaISO){
   const db = getFirestore();
   const q = query(collection(db,'slots'), where('fecha','==', fechaISO));
   unsubscribeSlots = onSnapshot(q, snap=>{
-    const ocupadas=new Set();
-    snap.forEach(d=>{ const h=d.data()?.hora; if(h) ocupadas.add(normHora(h)); });
-    marcarOcupadosUI(ocupadas);
+    const map = new Map();
+    snap.forEach(d=>{
+      const data = d.data() || {};
+      const hm = normHora(data.hora);
+      const tipo = data.tipo || 'reservado'; // compat: sin 'tipo' lo tratamos como reserva
+      if (hm) map.set(hm, tipo);
+    });
+    marcarOcupadosUI(map);
   }, err=>console.error('onSnapshot slots error:', err));
 }
 
@@ -557,24 +619,19 @@ form.addEventListener("submit", async (e)=>{
     fecha, hora,
     mensaje: (mensajeInput.value || '').trim()
   };
-  const horasABloquear = slotsAReservar(hora);
 
   try{
     const { getFirestore, collection, doc, runTransaction, serverTimestamp } = await fb();
     const db = getFirestore();
-    const slotRefs = horasABloquear.map(hhmm=>doc(db,'slots',`${fecha}T${hhmm}`));
-    const resRef   = doc(collection(db,'reservas'));
+    const slotRef = doc(db,'slots',`${fecha}T${hora}`);
+    const resRef  = doc(collection(db,'reservas'));
 
+    // SOLO el slot elegido, sin extender
     await runTransaction(db, async tx=>{
-      for (const sRef of slotRefs){
-        const sSnap = await tx.get(sRef);
-        if (sSnap.exists()) throw new Error('Horario ocupado');
-      }
-      tx.set(resRef, { ...payload, duracionMin: DURATION_MIN, estado:'pendiente', createdAt: serverTimestamp() });
-      for (const sRef of slotRefs){
-        const hhmm = sRef.id.split('T')[1];
-        tx.set(sRef, { fecha, hora: hhmm, createdAt: serverTimestamp() });
-      }
+      const sSnap = await tx.get(slotRef);
+      if (sSnap.exists()) throw new Error('Horario ocupado');
+      tx.set(resRef, { ...payload, duracionMin: SLOT_MIN, estado:'pendiente', createdAt: serverTimestamp() });
+      tx.set(slotRef, { fecha, hora, tipo:'reservado', createdAt: serverTimestamp() });
     });
 
     const msgWA =
@@ -592,7 +649,7 @@ form.addEventListener("submit", async (e)=>{
     horarioSeleccionado = null;
     horariosDiv.style.display = "none";
   } catch(e){
-    console.error('Error al guardar/bloquear:', e);
+    console.error('Error al guardar:', e);
     const msg = (e?.code || e?.message || '').toString().toLowerCase();
     if (msg.includes('permission') || msg.includes('denied')) alert('Permiso denegado por reglas de Firestore.');
     else if (msg.includes('ocupado')) alert('Ese horario ya fue tomado. Elegí otro.');
