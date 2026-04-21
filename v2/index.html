@@ -102,11 +102,24 @@
       border-radius: var(--radius);
       width: 100%;
       max-width: 520px;
-      max-height: 88vh;
+      max-height: 78vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
       animation: modalIn 0.2s ease;
+    }
+    .servicios-lista-wrap {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .servicios-lista-wrap::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 40px;
+      background: linear-gradient(transparent, white);
+      pointer-events: none;
     }
     .modal-header {
       padding: 1.25rem 1.5rem 0.75rem;
@@ -528,7 +541,9 @@
       </div>
     </div>
     <div class="categorias-scroll" id="categoriasContainer"></div>
-    <div class="servicios-lista" id="serviciosList"></div>
+    <div class="servicios-lista-wrap">
+      <div class="servicios-lista" id="serviciosList"></div>
+    </div>
     <div class="modal-footer" id="footerServicio" style="display:none">
       <button class="btn-cerrar" id="cerrarServicioBtn">← Volver</button>
     </div>
