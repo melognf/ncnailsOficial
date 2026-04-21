@@ -910,6 +910,21 @@ async function cargarSlots(fechaISO) {
   }, err => console.error('onSnapshot error:', err));
 }
 
+function slotsNecesarios() {
+  return servicioSel ? Math.ceil(servicioSel.duracion / SLOT_MIN) : 1;
+}
+
+function slotDisponible(hm) {
+  const n = slotsNecesarios();
+  const startMin = hmToMin(hm);
+  for (let i = 0; i < n; i++) {
+    const checkMin = startMin + i * SLOT_MIN;
+    if (checkMin > HORARIO_FIN_MIN) return false;
+    if (ocupadasSet.has(minToHM(checkMin))) return false;
+  }
+  return true;
+}
+
 function renderSlots(statusMap) {
   const mañana=[], tarde=[];
   for (let min=HORARIO_INICIO_MIN; min<=HORARIO_FIN_MIN; min+=SLOT_MIN) {
@@ -922,7 +937,7 @@ function renderSlots(statusMap) {
     const el = document.getElementById(containerId);
     if (!slots.length) { el.innerHTML=''; return; }
     const pills = slots.map(({hm,tipo}) => {
-      const ocupado = tipo !== 'libre';
+      const ocupado = tipo !== 'libre' || !slotDisponible(hm);
       const sel     = hm === horarioSel;
       return `<button class="slot-pill${ocupado?' ocupado':''}${sel?' selected':''}"
         data-hm="${hm}" ${ocupado?'disabled':''}>${hm} hs</button>`;
@@ -1041,12 +1056,18 @@ async function ejecutarConfirmacion() {
     const { getFirestore, collection, doc, runTransaction, serverTimestamp } = await fb();
     const db = getFirestore();
 
-    const slotRef = doc(db,'slots',`${fecha}T${hora}`);
     const resRef  = doc(collection(db,'reservas'));
+    const n = Math.ceil(servicioSel.duracion / SLOT_MIN);
+    const slotRefs = Array.from({length: n}, (_, i) => {
+      const h = minToHM(hmToMin(hora) + i * SLOT_MIN);
+      return { ref: doc(db,'slots',`${fecha}T${h}`), hora: h };
+    });
 
     await runTransaction(db, async tx => {
-      const sSnap = await tx.get(slotRef);
-      if (sSnap.exists()) throw new Error('ocupado');
+      for (const s of slotRefs) {
+        const snap = await tx.get(s.ref);
+        if (snap.exists()) throw new Error('ocupado');
+      }
       tx.set(resRef, {
         nombre, telefono,
         servicio:    servicioSel.nombre,
@@ -1056,7 +1077,9 @@ async function ejecutarConfirmacion() {
         estado:    'pendiente',
         createdAt: serverTimestamp()
       });
-      tx.set(slotRef, { fecha, hora, tipo:'reservado', createdAt: serverTimestamp() });
+      for (const s of slotRefs) {
+        tx.set(s.ref, { fecha, hora: s.hora, tipo:'reservado', createdAt: serverTimestamp() });
+      }
     });
 
     const d = isoToDate(fecha);
