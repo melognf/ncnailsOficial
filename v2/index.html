@@ -108,19 +108,6 @@
       overflow: hidden;
       animation: modalIn 0.2s ease;
     }
-    .servicios-lista-wrap {
-      flex: 1;
-      min-height: 0;
-      position: relative;
-    }
-    .servicios-lista-wrap::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 40px;
-      background: linear-gradient(transparent, white);
-      pointer-events: none;
-    }
     .modal-header {
       padding: 1.25rem 1.5rem 0.75rem;
       border-bottom: 1px solid var(--border);
@@ -173,7 +160,7 @@
     }
     .cat-pill.active { background: var(--primary); border-color: var(--primary); color: white; }
 
-    .servicios-lista { height: 100%; overflow-y: auto; padding: 0.75rem 1.5rem; -webkit-overflow-scrolling: touch; }
+    .servicios-lista { flex: 1; overflow-y: auto; padding: 0.75rem 1.5rem; -webkit-overflow-scrolling: touch; }
     .servicio-card {
       display: flex;
       align-items: center;
@@ -541,9 +528,7 @@
       </div>
     </div>
     <div class="categorias-scroll" id="categoriasContainer"></div>
-    <div class="servicios-lista-wrap">
-      <div class="servicios-lista" id="serviciosList"></div>
-    </div>
+    <div class="servicios-lista" id="serviciosList"></div>
     <div class="modal-footer" id="footerServicio" style="display:none">
       <button class="btn-cerrar" id="cerrarServicioBtn">← Volver</button>
     </div>
