@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NC Nails - Reservar turno</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="apple-touch-icon" href="../apple-touch-icon-180.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png">
+  <meta name="theme-color" content="#6d685a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NC Nails">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    .hidden { display: none !important; }
+
+    :root {
+      --primary:       #6d685a;
+      --primary-dark:  #524e43;
+      --primary-light: #f0ece0;
+      --bg:            #ede8d8;
+      --card:          #ffffff;
+      --text:          #3d3a33;
+      --text-light:    #8a8478;
+      --date-unavail:  #e8d5c8;
+      --border:        #d4cdb8;
+      --shadow:        0 2px 8px rgba(0,0,0,0.08);
+      --shadow-lg:     0 12px 40px rgba(0,0,0,0.18);
+      --radius:        12px;
+      --radius-sm:     8px;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    button:focus { outline: none; }
+
+    .header {
+      background: #3d3a33;
+      color: white;
+      padding: 0 1.25rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      cursor: pointer;
+    }
+    .header-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+    .header-logo-placeholder {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+    .header-name { font-weight: 600; font-size: 0.95rem; line-height: 1.2; }
+    .header-sub  { font-size: 0.7rem; color: var(--primary); font-weight: 600; letter-spacing: 0.05em; }
+    /* ── MODAL OVERLAY ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.52);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 1rem;
+    }
+    .modal-overlay.hidden { display: none; }
+    @keyframes modalIn {
+      from { opacity:0; transform: scale(0.96) translateY(8px); }
+      to   { opacity:1; transform: scale(1) translateY(0); }
+    }
+
+    /* ── MODAL SERVICIOS ── */
+    .modal-servicios {
+      background: white;
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 520px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalIn 0.2s ease;
+    }
+    .modal-header {
+      padding: 1.25rem 1.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .search-bar { display: flex; gap: 0.5rem; }
+    .search-bar input {
+      flex: 1;
+      padding: 0.5rem 0.85rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      font-family: inherit;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .search-bar input:focus { border-color: var(--primary); }
+    .search-bar button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.5rem 0.9rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .categorias-scroll {
+      padding: 0.65rem 1.5rem 0;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .categorias-scroll::-webkit-scrollbar { display: none; }
+    .cat-pill {
+      display: inline-block;
+      padding: 0.28rem 0.8rem;
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-right: 0.4rem;
+      margin-bottom: 0.4rem;
+      transition: all 0.15s;
+      background: white;
+      color: var(--text);
+      font-family: inherit;
+    }
+    .cat-pill.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+    .servicios-lista { flex: 1; overflow-y: auto; padding: 0.75rem 1.5rem; }
+    .servicio-card {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.85rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 0.55rem;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .servicio-card:hover { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    .servicio-img {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      background: var(--primary-light);
+    }
+    .servicio-info { flex: 1; min-width: 0; }
+    .servicio-nombre { font-size: 0.86rem; font-weight: 600; line-height: 1.3; margin-bottom: 0.15rem; }
+    .servicio-tipo   { font-size: 0.73rem; color: var(--text-light); }
+    .servicio-meta   { text-align: right; flex-shrink: 0; }
+    .servicio-precio { font-size: 0.9rem; font-weight: 700; color: var(--primary); }
+    .servicio-dur    { font-size: 0.73rem; color: var(--text-light); }
+
+    .modal-footer { padding: 0.85rem 1.5rem; border-top: 1px solid var(--border); }
+    .btn-cerrar {
+      width: 100%;
+      padding: 0.7rem;
+      background: var(--bg);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--text);
+      transition: background 0.15s;
+    }
+    .btn-cerrar:hover { background: #e5e7eb; }
+    .no-items { font-size: 0.85rem; color: var(--text-light); text-align: center; padding: 1.5rem 0; }
+
+    /* ── MAIN CONTENT ── */
+    .main-content {
+      max-width: 660px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 5rem;
+    }
+
+    /* Progress */
+    .progress-bar {
+      background: white;
+      border-radius: var(--radius);
+      padding: 0.85rem 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+    .progress-label { font-size: 0.7rem; color: var(--text-light); margin-bottom: 0.5rem; }
+    .progress-steps { display: flex; align-items: center; }
+    .step-item { display: flex; align-items: center; gap: 0.4rem; }
+    .step-circle {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 700; flex-shrink: 0;
+    }
+    .step-circle.done   { background: var(--primary); color: white; }
+    .step-circle.active { background: var(--primary); color: white; }
+    .step-circle.pending{ background: var(--border); color: var(--text-light); }
+    .step-name { font-size: 0.78rem; font-weight: 500; }
+    .step-name.done    { color: var(--text-light); }
+    .step-name.active  { color: var(--primary); font-weight: 600; }
+    .step-name.pending { color: var(--text-light); }
+    .step-connector { height: 2px; background: var(--border); flex: 1; margin: 0 0.5rem; }
+    .step-connector.done { background: var(--primary); }
+
+    /* Summary cards */
+    .summary-section { margin-bottom: 0.75rem; }
+    .summary-title {
+      font-size: 0.82rem; font-weight: 700;
+      margin-bottom: 0.4rem;
+      display: flex; align-items: center; gap: 0.3rem;
+    }
+    .summary-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 0.85rem 1rem;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .summary-img {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--primary-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+    }
+    .summary-name  { font-size: 0.88rem; font-weight: 600; }
+    .summary-sub   { font-size: 0.75rem; color: var(--text-light); }
+    .summary-price { font-size: 0.88rem; font-weight: 700; color: var(--primary); }
+    .summary-right { margin-left: auto; text-align: right; }
+    .btn-modificar {
+      background: none; border: none;
+      color: var(--primary);
+      font-size: 0.75rem; cursor: pointer;
+      font-family: inherit; font-weight: 500;
+      padding: 0; display: block; margin-top: 2px;
+    }
+    .btn-modificar:hover { text-decoration: underline; }
+
+    /* Carousel */
+    .carousel-title {
+      font-size: 0.9rem; font-weight: 700;
+      margin-bottom: 0.6rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .carousel-wrapper { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.5rem; }
+    .carousel-nav {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: white;
+      border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1rem; flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .carousel-nav:hover:not(:disabled) { background: var(--primary-light); }
+    .carousel-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+    .carousel-days { display: flex; gap: 0.4rem; flex: 1; overflow: hidden; }
+    .day-pill {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0.55rem 0.2rem;
+      border-radius: var(--radius-sm);
+      background: white;
+      border: none; cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+      min-width: 0;
+    }
+    .day-pill:hover:not(.unavail):not(.selected) { background: var(--primary-light); }
+    .day-pill.selected { background: var(--primary); color: white; }
+    .day-pill.unavail  { background: var(--date-unavail); cursor: not-allowed; opacity: 0.7; }
+    .day-pill .dn  { font-size: 0.68rem; font-weight: 500; opacity: 0.7; }
+    .day-pill .dd  { font-size: 1.05rem; font-weight: 700; }
+    .day-pill .dm  { font-size: 0.62rem; opacity: 0.6; }
+    .day-pill.selected .dn,
+    .day-pill.selected .dm { opacity: 0.85; }
+
+    /* primer-dia hint */
+    .primer-dia-hint {
+      font-size: 0.72rem; color: var(--text-light);
+      text-align: center; margin-top: 0.3rem;
+      display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+    }
+
+    /* Slots */
+    .slots-section { margin-bottom: 1.5rem; }
+    .slots-loading { font-size: 0.85rem; color: var(--text-light); padding: 1rem 0; text-align: center; }
+    .slots-period {
+      font-size: 0.8rem; font-weight: 600;
+      color: var(--text-light);
+      margin: 0.85rem 0 0.45rem;
+      display: flex; align-items: center; gap: 0.35rem;
+    }
+    .slots-grid { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+    .slot-pill {
+      padding: 0.42rem 0.85rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: white;
+      font-size: 0.84rem; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .slot-pill:hover:not(.ocupado) { border-color: var(--primary); color: var(--primary); }
+    .slot-pill.selected { background: var(--primary); color: white; border-color: var(--primary); }
+    .slot-pill.ocupado  { background: #f3f4f6; color: #d1d5db; cursor: not-allowed; border-color: #f3f4f6; }
+    .no-slots { font-size: 0.85rem; color: var(--text-light); padding: 1rem 0; }
+
+    /* CONTINUAR */
+    .btn-continuar {
+      width: 100%;
+      padding: 1rem;
+      background: var(--primary);
+      color: white; border: none;
+      border-radius: var(--radius);
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn-continuar:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-continuar:active:not(:disabled) { transform: scale(0.98); }
+    .btn-continuar:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── MODAL RESUMEN FINAL ── */
+    .modal-resumen {
+      background: white;
+      border-radius: var(--radius);
+      width: 100%; max-width: 430px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: modalIn 0.2s ease;
+    }
+    .resumen-header {
+      padding: 1.1rem 1.25rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .resumen-header h3 {
+      font-size: 0.9rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .resumen-total { font-size: 1.05rem; font-weight: 700; color: var(--primary); }
+    .resumen-body  { padding: 1rem 1.25rem; }
+    .turno-tag {
+      display: inline-block;
+      background: var(--primary); color: white;
+      font-size: 0.72rem; font-weight: 700;
+      padding: 0.18rem 0.6rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.75rem;
+    }
+    .resumen-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+    .resumen-row {
+      display: flex; align-items: flex-start;
+      gap: 0.5rem; margin-bottom: 0.45rem;
+      font-size: 0.84rem;
+    }
+    .resumen-row:last-child { margin-bottom: 0; }
+    .ricon { font-size: 0.88rem; flex-shrink: 0; margin-top: 0.05rem; }
+    .rval  { font-weight: 600; }
+    .rsub  { color: var(--text-light); font-size: 0.78rem; }
+    .rright{ margin-left: auto; text-align: right; font-weight: 600; }
+
+    .desc-btn {
+      display: flex; align-items: center; gap: 0.35rem;
+      font-size: 0.8rem; color: var(--primary);
+      font-weight: 500; cursor: pointer;
+      background: none; border: none;
+      font-family: inherit; margin-bottom: 0.6rem;
+    }
+    .desc-btn:hover { text-decoration: underline; }
+    .desc-input {
+      width: 100%;
+      padding: 0.55rem 0.8rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem; font-family: inherit;
+      outline: none; margin-bottom: 0.6rem;
+      transition: border 0.2s;
+    }
+    .desc-input:focus { border-color: var(--primary); }
+
+    .sena-aviso {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.8rem; font-weight: 600; color: #dc2626;
+      margin-bottom: 0.75rem;
+    }
+    .notas-input {
+      width: 100%;
+      padding: 0.65rem 0.8rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem; font-family: inherit;
+      resize: vertical; min-height: 68px;
+      outline: none; margin-bottom: 0.75rem;
+      transition: border 0.2s;
+    }
+    .notas-input:focus { border-color: var(--primary); }
+
+    .btn-confirmar {
+      width: 100%;
+      padding: 1rem;
+      background: var(--primary); color: white; border: none;
+      border-radius: var(--radius);
+      font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      transition: background 0.2s;
+      margin-bottom: 0.5rem;
+    }
+    .btn-confirmar:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-confirmar:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pago-info { font-size: 0.73rem; color: var(--text-light); text-align: center; margin-bottom: 0.75rem; }
+    .agregar-btn {
+      display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+      width: 100%;
+      font-size: 0.8rem; color: var(--primary); font-weight: 500;
+      cursor: pointer; background: none;
+      border: none; border-top: 1px solid var(--border);
+      font-family: inherit; padding-top: 0.75rem; margin-top: 0.25rem;
+    }
+    .agregar-btn:hover { text-decoration: underline; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 1.5rem; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #3d3a33; color: white;
+      padding: 0.8rem 1.5rem;
+      border-radius: 999px;
+      font-size: 0.85rem; font-weight: 600;
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.35s ease;
+      z-index: 300; white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Spinner */
+    .spinner {
+      width: 17px; height: 17px;
+      border: 2.5px solid rgba(255,255,255,0.35);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 480px) {
+      .main-content { padding: 1rem 0.75rem 5rem; }
+      .day-pill .dd { font-size: 0.95rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header class="header">
+  <div class="header-brand" id="headerBrand">
+    <img src="imagenes/nc nails.jpg" class="header-logo" alt="NC Nails"
+         onerror="this.outerHTML='<div class=\'header-logo-placeholder\'>💅</div>'">
+    <div>
+      <div class="header-name">NC Nails</div>
+      <div class="header-sub">NUEVO TURNO</div>
+    </div>
+  </div>
+</header>
+
+<!-- ══ MODAL: ELEGIR SERVICIO ══ -->
+<div class="modal-overlay" id="modalServicio">
+  <div class="modal-servicios">
+    <div class="modal-header">
+      <h2>🔔 Elegir servicio</h2>
+      <div class="search-bar">
+        <input type="text" id="buscadorServicio" placeholder="Nombre del servicio...">
+        <button id="btnBuscar">🔍</button>
+      </div>
+    </div>
+    <div class="categorias-scroll" id="categoriasContainer"></div>
+    <div class="servicios-lista" id="serviciosList"></div>
+    <div class="modal-footer">
+      <button class="btn-cerrar" id="cerrarServicioBtn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN: PASO 3 (fecha y hora) ══ -->
+<div class="main-content" id="vistaHorario" style="display:none">
+
+  <!-- Barra de progreso -->
+  <div class="progress-bar">
+    <div class="progress-label">Paso 3 de 3 · Seleccionar Fecha y hora</div>
+    <div class="progress-steps">
+      <div class="step-item">
+        <div class="step-circle done">✓</div>
+        <span class="step-name done">Servicio</span>
+      </div>
+      <div class="step-connector done"></div>
+      <div class="step-item">
+        <div class="step-circle done">✓</div>
+        <span class="step-name done">Profesional</span>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item">
+        <div class="step-circle active">3</div>
+        <span class="step-name active">Horario</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Servicio elegido -->
+  <div class="summary-section">
+    <div class="summary-title">🔔 Servicio elegido</div>
+    <div class="summary-card">
+      <div class="summary-img" id="resServImg">💅</div>
+      <div>
+        <div class="summary-name" id="resServNombre"></div>
+        <div class="summary-sub">Presencial</div>
+      </div>
+      <div class="summary-right">
+        <div class="summary-price" id="resServPrecio"></div>
+        <div class="summary-sub"  id="resServDur"></div>
+        <button class="btn-modificar" id="btnModServ">✏ Modificar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profesional elegido -->
+  <div class="summary-section">
+    <div class="summary-title">💼 Profesional elegida</div>
+    <div class="summary-card">
+      <div class="summary-img">
+        <img src="imagenes/noelia.jpg" style="width:100%;height:100%;border-radius:50%;object-fit:cover"
+             alt="Noelia" onerror="this.src='imagenes/nc nails.jpg'">
+      </div>
+      <div>
+        <div class="summary-name">Noelia</div>
+        <div class="summary-sub">NC Nails · Berlín 1405, Loma Hermosa</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Carrusel de fechas -->
+  <div class="carousel-title">📅 Elegir fecha y horario</div>
+  <div class="carousel-wrapper">
+    <button class="carousel-nav" id="carPrev">‹</button>
+    <div class="carousel-days" id="carDays"></div>
+    <button class="carousel-nav" id="carNext">›</button>
+  </div>
+  <div class="primer-dia-hint" id="primerDiaHint" style="display:none">
+    ↑ 1er día con disponibilidad
+  </div>
+
+  <!-- Slots horarios -->
+  <div class="slots-section" id="slotsSection" style="display:none">
+    <div id="slotsMañana"></div>
+    <div id="slotsTarde"></div>
+  </div>
+
+  <!-- Botón continuar -->
+  <button class="btn-continuar" id="btnContinuar" disabled>
+    🛒 CONTINUAR
+  </button>
+</div>
+
+<!-- ══ MODAL: RESUMEN FINAL ══ -->
+<div class="modal-overlay hidden" id="modalResumen">
+  <div class="modal-resumen">
+    <div class="resumen-header">
+      <h3>TURNO A RESERVAR</h3>
+      <span class="resumen-total" id="resTotal"></span>
+    </div>
+    <div class="resumen-body">
+      <div><span class="turno-tag">📅 Turno 1</span></div>
+      <div class="resumen-card" id="resCard"></div>
+
+      <button class="desc-btn" id="btnDescuento">🎟 Tengo código de descuento</button>
+      <div id="descuentoWrap" style="display:none">
+        <input class="desc-input" type="text" id="codigoDesc" placeholder="Ingresá el código...">
+      </div>
+
+      <!-- Datos del cliente -->
+      <div style="display:flex; gap:0.5rem; margin-bottom:0.65rem;">
+        <input class="desc-input" type="text" id="clienteNombre" placeholder="Tu nombre *" style="margin-bottom:0; flex:1;">
+        <input class="desc-input" type="tel"  id="clienteTelefono" placeholder="WhatsApp (ej: 1130669623) *" style="margin-bottom:0; flex:1;">
+      </div>
+
+      <div class="sena-aviso">⚠ Seña obligatoria</div>
+
+      <textarea class="notas-input" id="notasFinales" placeholder="Aclaraciones para el profesional/empresa..."></textarea>
+
+      <button class="btn-confirmar" id="btnConfirmarFinal">
+        🔑 CONFIRMAR y enviar por WhatsApp
+      </button>
+      <div class="pago-info">
+        Contacto por WhatsApp · <strong>Lunes a Sábado 08:30–18:00</strong>
+      </div>
+      <button class="agregar-btn" id="btnAgregarServicio">⊕ Añadir otro servicio</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div class="toast" id="toast">✔ ¡Reserva enviada! Te contacto para confirmar 💅</div>
+
+<script type="module" src="./firebase-config.js?v=1"></script>
+
+<script type="module">
+
+// ════ DATOS ════
+const SERVICIOS = [
+  { id:1,  nombre:"Manicuría americana",                                               precio:4500,  duracion:45,  categoria:"Manicuría",               emoji:"💅", img:"" },
+  { id:2,  nombre:"Manicuría + esmaltado tradicional",                                precio:9500,  duracion:60,  categoria:"Manicuría",               emoji:"💅", img:"" },
+  { id:3,  nombre:"Manicuría + esmaltado semipermanente",                             precio:14000, duracion:90,  categoria:"Esmaltado semipermanente", emoji:"✨", img:"" },
+  { id:4,  nombre:"Nivelación + esmaltado semipermanente hasta largo 2",              precio:16000, duracion:90,  categoria:"Nivelación",              emoji:"💎", img:"" },
+  { id:5,  nombre:"Capping en acrygel/gel + esmaltado semipermanente hasta largo 2",  precio:17000, duracion:120, categoria:"Kapping",                 emoji:"💎", img:"" },
+  { id:6,  nombre:"Extensiones en Soft Gel hasta largo 3",                            precio:19500, duracion:150, categoria:"Extensiones",             emoji:"🌟", img:"" },
+  { id:7,  nombre:"Esculpidas hasta largo 2",                                         precio:20500, duracion:150, categoria:"Esculpidas",              emoji:"🌟", img:"" },
+  { id:8,  nombre:"Retiro de esmaltado semipermanente de otro salón",                 precio:6000,  duracion:45,  categoria:"Retiro",                  emoji:"🗑", img:"" },
+  { id:9,  nombre:"Retiro de capping de otro salón",                                  precio:8000,  duracion:60,  categoria:"Retiro",                  emoji:"🗑", img:"" },
+  { id:10, nombre:"Retiro de esculpidas/Soft gel de otro salón",                      precio:9000,  duracion:75,  categoria:"Retiro",                  emoji:"🗑", img:"" },
+];
+
+// ════ CONFIG ════
+const SLOT_MIN           = 30;
+const ADMIN_PIN          = "noe";
+const HORARIO_INICIO_MIN = 8*60+30;
+const HORARIO_FIN_MIN    = 18*60;
+const DIAS_VISIBLES      = 5;
+const WA_NUM             = "549" + 1130669623;
+
+// ════ ESTADO ════
+let servicioSel    = null;
+let fechaSel       = null;
+let horarioSel     = null;
+let carOffset      = 0;
+let ocupadasSet    = new Set();
+let unsubSlots     = null;
+let isAdmin        = false;
+let categoriaSel   = "Todos";
+
+// ════ HELPERS ════
+const pad2      = n  => String(n).padStart(2,"0");
+const normHora  = h  => { const m=String(h||'').match(/^(\d{1,2})(?::?(\d{2}))?$/); return m?`${pad2(m[1])}:${pad2(m[2]??'00')}`:String(h||''); };
+const hmToMin   = hm => { const[H,M]=hm.split(':').map(Number); return H*60+(M||0); };
+const minToHM   = mn => `${pad2(Math.floor(mn/60))}:${pad2(mn%60)}`;
+const formatARS = n  => `$ ${Number(n).toLocaleString('es-AR')}`;
+const formatDur = m  => m<60?`${m} min`:`${Math.floor(m/60)}${m%60?`:${pad2(m%60)}`:''}  hs`;
+
+const DIAS  = ['dom','lun','mar','mié','jue','vie','sáb'];
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+function offsetToISO(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function isoToDate(iso) { return new Date(iso+"T00:00:00"); }
+
+// ════ FIRESTORE (lazy) ════
+let FB = null;
+async function fb() {
+  if (FB) return FB;
+  FB = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  return FB;
+}
+
+// ════ ADMIN ════
+window.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes((document.activeElement?.tagName||'').toUpperCase())) return;
+  if (e.ctrlKey && e.altKey && e.key?.toLowerCase() === 'p') {
+    e.preventDefault();
+    if (!isAdmin) {
+      const pin = prompt("PIN Admin:");
+      if (pin?.trim() === ADMIN_PIN) { isAdmin=true; console.log('[Admin] ON'); }
+    } else { isAdmin=false; console.log('[Admin] OFF'); }
+  }
+});
+
+// ════ MODAL SERVICIOS ════
+const modalServicio = document.getElementById('modalServicio');
+const buscador      = document.getElementById('buscadorServicio');
+
+function abrirModalServicio() {
+  categoriaSel = "Todos";
+  buscador.value = "";
+  renderCategorias();
+  renderServicios();
+  modalServicio.classList.remove('hidden');
+  buscador.focus();
+}
+function cerrarModalServicio() { modalServicio.classList.add('hidden'); }
+
+document.getElementById('headerBrand').addEventListener('click', () => {
+  // Volver al inicio: resetear todo
+  servicioSel = null; fechaSel = null; horarioSel = null;
+  document.getElementById('vistaHorario').style.display = 'none';
+  abrirModalServicio();
+});
+document.getElementById('cerrarServicioBtn').addEventListener('click', () => {
+  if (!servicioSel) return; // si no eligió servicio aún, no cerrar
+  cerrarModalServicio();
+});
+document.getElementById('btnModServ').addEventListener('click', abrirModalServicio);
+
+// Categorías
+function renderCategorias() {
+  const cats = ["Todos", ...new Set(SERVICIOS.map(s => s.categoria))];
+  const container = document.getElementById('categoriasContainer');
+  container.innerHTML = cats.map(c =>
+    `<button class="cat-pill${c===categoriaSel?' active':''}" data-cat="${c}">${c}${c!=='Todos'?` (${SERVICIOS.filter(s=>s.categoria===c).length})`:''}</button>`
+  ).join('');
+  container.querySelectorAll('.cat-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      categoriaSel = btn.dataset.cat;
+      renderCategorias();
+      renderServicios();
+    });
+  });
+}
+
+// Lista de servicios
+function renderServicios() {
+  const q = buscador.value.toLowerCase().trim();
+  const lista = SERVICIOS.filter(s =>
+    (categoriaSel === 'Todos' || s.categoria === categoriaSel) &&
+    (!q || s.nombre.toLowerCase().includes(q))
+  );
+  const el = document.getElementById('serviciosList');
+  if (!lista.length) {
+    el.innerHTML = '<div class="no-items">No se encontraron servicios.</div>';
+    return;
+  }
+  el.innerHTML = lista.map(s => `
+    <div class="servicio-card" data-id="${s.id}">
+      <div class="servicio-img">${s.img ? `<img src="${s.img}" alt="${s.nombre}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.textContent='${s.emoji}'">` : s.emoji}</div>
+      <div class="servicio-info">
+        <div class="servicio-nombre">${s.nombre}</div>
+        <div class="servicio-tipo">Presencial</div>
+      </div>
+      <div class="servicio-meta">
+        <div class="servicio-precio">${formatARS(s.precio)}</div>
+        <div class="servicio-dur">${formatDur(s.duracion)}</div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('.servicio-card').forEach(card => {
+    card.addEventListener('click', () => {
+      elegirServicio(SERVICIOS.find(s => s.id === +card.dataset.id));
+    });
+  });
+}
+
+buscador.addEventListener('input', renderServicios);
+document.getElementById('btnBuscar').addEventListener('click', renderServicios);
+
+function elegirServicio(s) {
+  servicioSel = s;
+  cerrarModalServicio();
+  actualizarResumenServicio();
+  document.getElementById('vistaHorario').style.display = '';
+  resetHorario();
+  window.scrollTo({ top: 0, behavior:'smooth' });
+}
+
+function actualizarResumenServicio() {
+  const imgEl = document.getElementById('resServImg');
+  if (servicioSel.img) {
+    imgEl.innerHTML = `<img src="${servicioSel.img}" alt="${servicioSel.nombre}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.textContent='${servicioSel.emoji}'">`;
+  } else {
+    imgEl.textContent = servicioSel.emoji;
+  }
+  document.getElementById('resServNombre').textContent  = servicioSel.nombre;
+  document.getElementById('resServPrecio').textContent  = formatARS(servicioSel.precio);
+  document.getElementById('resServDur').textContent     = formatDur(servicioSel.duracion);
+}
+
+// ════ CARRUSEL ════
+const carDays = document.getElementById('carDays');
+const carPrev = document.getElementById('carPrev');
+const carNext = document.getElementById('carNext');
+
+function renderCarrusel() {
+  carDays.innerHTML = '';
+  let primerDisponible = null;
+
+  for (let i = 0; i < DIAS_VISIBLES; i++) {
+    const offset   = carOffset + i;
+    const iso      = offsetToISO(offset);
+    const dObj     = isoToDate(iso);
+    const dow      = dObj.getDay();
+    const esDom    = dow === 0;
+    const esHoy    = offset === 0;
+    const esSel    = iso === fechaSel;
+
+    if (!esDom && primerDisponible === null && carOffset === 0 && i === 0) primerDisponible = iso;
+
+    const btn = document.createElement('button');
+    btn.className = 'day-pill' + (esDom?' unavail':'') + (esSel?' selected':'');
+    btn.innerHTML = `
+      <span class="dn">${esHoy?'hoy':DIAS[dow]}</span>
+      <span class="dd">${dObj.getDate()}</span>
+      <span class="dm">${MESES[dObj.getMonth()]}</span>
+    `;
+    if (!esDom) btn.addEventListener('click', () => seleccionarFecha(iso));
+    else btn.title = "Domingos sin turnos";
+    carDays.appendChild(btn);
+  }
+
+  carPrev.disabled = carOffset === 0;
+
+  // hint "1er día con disponibilidad"
+  const hint = document.getElementById('primerDiaHint');
+  hint.style.display = (!fechaSel && carOffset === 0) ? 'flex' : 'none';
+}
+
+carPrev.addEventListener('click', () => { if(carOffset>0){carOffset--; renderCarrusel();} });
+carNext.addEventListener('click', () => { carOffset++; renderCarrusel(); });
+
+async function seleccionarFecha(iso) {
+  fechaSel   = iso;
+  horarioSel = null;
+  document.getElementById('btnContinuar').disabled = true;
+  document.getElementById('primerDiaHint').style.display = 'none';
+  renderCarrusel();
+  await cargarSlots(iso);
+}
+
+// ════ FIRESTORE SLOTS ════
+async function cargarSlots(fechaISO) {
+  if (unsubSlots) { unsubSlots(); unsubSlots = null; }
+  const sec = document.getElementById('slotsSection');
+  sec.style.display = '';
+  sec.innerHTML = '<div class="slots-loading">Cargando horarios disponibles...</div>';
+
+  const { getFirestore, collection, query, where, onSnapshot } = await fb();
+  const db = getFirestore();
+  const q  = query(collection(db,'slots'), where('fecha','==', fechaISO));
+
+  unsubSlots = onSnapshot(q, snap => {
+    const map = new Map();
+    snap.forEach(d => {
+      const data = d.data() || {};
+      const hm   = normHora(data.hora);
+      if (hm) map.set(hm, data.tipo || 'reservado');
+    });
+    ocupadasSet = new Set(map.keys());
+    renderSlots(map);
+  }, err => console.error('onSnapshot error:', err));
+}
+
+function renderSlots(statusMap) {
+  const mañana=[], tarde=[];
+  for (let min=HORARIO_INICIO_MIN; min<=HORARIO_FIN_MIN; min+=SLOT_MIN) {
+    const hm   = minToHM(min);
+    const tipo = statusMap?.get(hm) || 'libre';
+    (hmToMin(hm) < 13*60 ? mañana : tarde).push({ hm, tipo });
+  }
+
+  function buildGrupo(slots, containerId, titulo, icono) {
+    const el = document.getElementById(containerId);
+    if (!slots.length) { el.innerHTML=''; return; }
+    const pills = slots.map(({hm,tipo}) => {
+      const ocupado = tipo !== 'libre';
+      const sel     = hm === horarioSel;
+      return `<button class="slot-pill${ocupado?' ocupado':''}${sel?' selected':''}"
+        data-hm="${hm}" ${ocupado?'disabled':''}>${hm} hs</button>`;
+    }).join('');
+    el.innerHTML = `<div class="slots-period">${icono} ${titulo}</div><div class="slots-grid">${pills}</div>`;
+    el.querySelectorAll('.slot-pill:not(.ocupado)').forEach(btn => {
+      btn.addEventListener('click', () => elegirHorario(btn.dataset.hm));
+    });
+  }
+
+  const sec = document.getElementById('slotsSection');
+  sec.innerHTML = '';
+  sec.appendChild(Object.assign(document.createElement('div'), {id:'slotsMañana'}));
+  sec.appendChild(Object.assign(document.createElement('div'), {id:'slotsTarde'}));
+  sec.style.display = '';
+
+  buildGrupo(mañana, 'slotsMañana', 'Por la mañana', '🌅');
+  buildGrupo(tarde,  'slotsTarde',  'Por la tarde',  '🌇');
+
+  const hayLibres = [...mañana,...tarde].some(s=>s.tipo==='libre');
+  if (!hayLibres) {
+    sec.innerHTML += '<div class="no-slots">No hay horarios disponibles para este día. Probá con otra fecha.</div>';
+  }
+}
+
+function elegirHorario(hm) {
+  horarioSel = hm;
+  document.getElementById('btnContinuar').disabled = false;
+  renderSlots(new Map([...ocupadasSet].map(h=>[h,'reservado'])));
+  document.getElementById('btnContinuar').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// ════ MODAL RESUMEN ════
+document.getElementById('btnContinuar').addEventListener('click', abrirResumen);
+
+function abrirResumen() {
+  if (!servicioSel || !fechaSel || !horarioSel) return;
+  const d = isoToDate(fechaSel);
+  const fechaBonita = `${d.getDate()}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
+
+  document.getElementById('resTotal').textContent = formatARS(servicioSel.precio);
+  document.getElementById('resCard').innerHTML = `
+    <div class="resumen-row">
+      <span class="ricon">👤</span>
+      <span class="rval">Noelia F.</span>
+      <span class="rright">📅 ${fechaBonita} &nbsp; 🕐 ${horarioSel}</span>
+    </div>
+    <div class="resumen-row">
+      <span class="ricon">🔔</span>
+      <div>
+        <div class="rval">${servicioSel.nombre}</div>
+        <div class="rsub">${formatDur(servicioSel.duracion)}</div>
+      </div>
+      <span class="rright">${formatARS(servicioSel.precio)}</span>
+    </div>
+    <div class="resumen-row">
+      <span class="ricon">📍</span>
+      <span class="rsub">Berlín 1405, Loma Hermosa</span>
+    </div>
+  `;
+
+  document.getElementById('notasFinales').value     = '';
+  document.getElementById('codigoDesc').value       = '';
+  document.getElementById('clienteNombre').value    = '';
+  document.getElementById('clienteTelefono').value  = '';
+  document.getElementById('descuentoWrap').style.display = 'none';
+  document.getElementById('modalResumen').classList.remove('hidden');
+}
+
+// Toggle descuento
+document.getElementById('btnDescuento').addEventListener('click', () => {
+  const w = document.getElementById('descuentoWrap');
+  w.style.display = w.style.display==='none' ? 'block' : 'none';
+  if (w.style.display==='block') document.getElementById('codigoDesc').focus();
+});
+
+// Cerrar al clickear overlay
+document.getElementById('modalResumen').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalResumen'))
+    document.getElementById('modalResumen').classList.add('hidden');
+});
+
+// Añadir otro servicio
+document.getElementById('btnAgregarServicio').addEventListener('click', () => {
+  document.getElementById('modalResumen').classList.add('hidden');
+  abrirModalServicio();
+});
+
+// ════ CONFIRMAR ════
+document.getElementById('btnConfirmarFinal').addEventListener('click', ejecutarConfirmacion);
+
+async function ejecutarConfirmacion() {
+  const nombre   = document.getElementById('clienteNombre').value.trim();
+  const telefono = document.getElementById('clienteTelefono').value.trim().replace(/[\s\-\(\)\+]/g,'');
+
+  if (!nombre) {
+    document.getElementById('clienteNombre').focus();
+    showToastError('Ingresá tu nombre para continuar.');
+    return;
+  }
+  if (!/^\d{8,15}$/.test(telefono)) {
+    document.getElementById('clienteTelefono').focus();
+    showToastError('Ingresá un número de WhatsApp válido.');
+    return;
+  }
+
+  const btn = document.getElementById('btnConfirmarFinal');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+  const fecha = fechaSel;
+  const hora  = normHora(horarioSel);
+  const notas = document.getElementById('notasFinales').value.trim();
+
+  try {
+    const { getFirestore, collection, doc, runTransaction, serverTimestamp } = await fb();
+    const db = getFirestore();
+
+    const slotRef = doc(db,'slots',`${fecha}T${hora}`);
+    const resRef  = doc(collection(db,'reservas'));
+
+    await runTransaction(db, async tx => {
+      const sSnap = await tx.get(slotRef);
+      if (sSnap.exists()) throw new Error('ocupado');
+      tx.set(resRef, {
+        nombre, telefono,
+        servicio:    servicioSel.nombre,
+        precio:      servicioSel.precio,
+        duracionMin: servicioSel.duracion,
+        fecha, hora, notas,
+        estado:    'pendiente',
+        createdAt: serverTimestamp()
+      });
+      tx.set(slotRef, { fecha, hora, tipo:'reservado', createdAt: serverTimestamp() });
+    });
+
+    const d = isoToDate(fecha);
+    const fechaBonita = `${d.getDate()}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
+    const msg =
+      `Hola! Soy ${nombre}. Quiero reservar un turno para el ${fechaBonita} a las ${hora}.\n` +
+      `Servicio: ${servicioSel.nombre} (${formatDur(servicioSel.duracion)}).\n` +
+      (notas ? `Nota: ${notas}\n` : '') +
+      `Mi WhatsApp: ${telefono}`;
+
+    document.getElementById('modalResumen').classList.add('hidden');
+    mostrarToast();
+    setTimeout(() => window.open(`https://wa.me/${WA_NUM}?text=${encodeURIComponent(msg)}`, '_blank'), 400);
+
+    servicioSel = null; fechaSel = null; horarioSel = null;
+    document.getElementById('vistaHorario').style.display = 'none';
+    resetHorario();
+    abrirModalServicio();
+
+  } catch(e) {
+    console.error(e);
+    const errMsg = (e?.message||'').toLowerCase();
+    document.getElementById('modalResumen').classList.add('hidden');
+    if (errMsg.includes('ocupado')) {
+      ocupadasSet.add(normHora(horarioSel));
+      horarioSel = null;
+      document.getElementById('btnContinuar').disabled = true;
+      renderSlots(new Map([...ocupadasSet].map(h=>[h,'reservado'])));
+      showToastError('Ese horario fue tomado recién. Elegí otro. 😢');
+    } else {
+      showToastError('No se pudo guardar. Intentá de nuevo.');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔑 CONFIRMAR y enviar por WhatsApp';
+  }
+}
+
+function resetHorario() {
+  horarioSel = null;
+  fechaSel   = null;
+  carOffset  = 0;
+  ocupadasSet = new Set();
+  if (unsubSlots) { unsubSlots(); unsubSlots=null; }
+  document.getElementById('slotsSection').style.display = 'none';
+  document.getElementById('btnContinuar').disabled = true;
+  document.getElementById('primerDiaHint').style.display = 'flex';
+  renderCarrusel();
+}
+
+// ════ TOAST ════
+function mostrarToast(msg) {
+  const t = document.getElementById('toast');
+  if (msg) t.textContent = msg;
+  else t.textContent = '✔ ¡Reserva enviada! Te contacto para confirmar 💅';
+  t.style.background = '#1a1a2e';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4500);
+}
+function showToastError(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = '#dc2626';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ════ INIT ════
+abrirModalServicio();
+renderCarrusel();
+</script>
+
+</body>
+</html>
