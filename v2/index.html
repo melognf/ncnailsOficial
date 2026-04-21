@@ -529,8 +529,8 @@
     </div>
     <div class="categorias-scroll" id="categoriasContainer"></div>
     <div class="servicios-lista" id="serviciosList"></div>
-    <div class="modal-footer">
-      <button class="btn-cerrar" id="cerrarServicioBtn">Cerrar</button>
+    <div class="modal-footer" id="footerServicio" style="display:none">
+      <button class="btn-cerrar" id="cerrarServicioBtn">← Volver</button>
     </div>
   </div>
 </div>
@@ -738,6 +738,7 @@ function abrirModalServicio() {
   renderCategorias();
   renderServicios();
   modalServicio.classList.remove('hidden');
+  document.getElementById('footerServicio').style.display = servicioSel ? '' : 'none';
   buscador.focus();
 }
 function cerrarModalServicio() { modalServicio.classList.add('hidden'); }
