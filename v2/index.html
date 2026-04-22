@@ -812,34 +812,36 @@ async function abrirPanelAdmin() {
   const body = document.getElementById('adminBody');
   body.innerHTML = '<div class="admin-empty">Cargando reservas...</div>';
 
-  const { getFirestore, collection, query, orderBy, getDocs } = await fb();
+  const { getFirestore, collection, getDocs } = await fb();
   const db = getFirestore();
-  const snap = await getDocs(query(collection(db,'reservas'), orderBy('fecha'), orderBy('hora')));
+  const snap = await getDocs(collection(db,'reservas'));
 
   if (snap.empty) {
     body.innerHTML = '<div class="admin-empty">No hay reservas aún.</div>';
     return;
   }
 
+  const docs = [];
+  snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+  docs.sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+
   body.innerHTML = '';
-  snap.forEach(docSnap => {
-    const r = docSnap.data();
-    const id = docSnap.id;
-    const cancelada = r.estado === 'cancelada';
-    const d = isoToDate(r.fecha);
-    const fechaBonita = `${DIAS[d.getDay()].toUpperCase()} ${d.getDate()}/${pad2(d.getMonth()+1)}/${d.getFullYear()} · ${r.hora} hs`;
+  docs.forEach(res => {
+    const cancelada = res.estado === 'cancelada';
+    const d = isoToDate(res.fecha);
+    const fechaBonita = `${DIAS[d.getDay()].toUpperCase()} ${d.getDate()}/${pad2(d.getMonth()+1)}/${d.getFullYear()} · ${res.hora} hs`;
 
     const div = document.createElement('div');
     div.className = 'reserva-item' + (cancelada ? ' cancelada' : '');
     div.innerHTML = `
       <div class="reserva-fecha">${fechaBonita}</div>
-      <div class="reserva-nombre">${r.nombre}</div>
-      <div class="reserva-servicio">${r.servicio} · ${formatDur(r.duracionMin)}</div>
+      <div class="reserva-nombre">${res.nombre}</div>
+      <div class="reserva-servicio">${res.servicio} · ${formatDur(res.duracionMin)}</div>
       <div class="reserva-footer">
-        <span class="reserva-tel">📱 ${r.telefono}</span>
+        <span class="reserva-tel">📱 ${res.telefono}</span>
         ${cancelada
           ? '<span style="font-size:0.75rem;color:#9ca3af">Cancelada</span>'
-          : `<button class="btn-cancelar-res" data-id="${id}" data-fecha="${r.fecha}" data-hora="${r.hora}" data-dur="${r.duracionMin}">✕ Cancelar</button>`
+          : `<button class="btn-cancelar-res" data-id="${res.id}" data-fecha="${res.fecha}" data-hora="${res.hora}" data-dur="${res.duracionMin}">✕ Cancelar</button>`
         }
       </div>
     `;
