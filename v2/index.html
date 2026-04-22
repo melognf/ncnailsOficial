@@ -825,9 +825,15 @@ async function abrirPanelAdmin() {
   snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
   docs.sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
 
+  const activas = docs.filter(r => r.estado !== 'cancelada');
+  if (!activas.length) {
+    body.innerHTML = '<div class="admin-empty">No hay reservas activas.</div>';
+    return;
+  }
+
   body.innerHTML = '';
-  docs.forEach(res => {
-    const cancelada = res.estado === 'cancelada';
+  activas.forEach(res => {
+    const cancelada = false;
     const d = isoToDate(res.fecha);
     const fechaBonita = `${DIAS[d.getDay()].toUpperCase()} ${d.getDate()}/${pad2(d.getMonth()+1)}/${d.getFullYear()} · ${res.hora} hs`;
 
