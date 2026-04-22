@@ -900,11 +900,37 @@ function abrirModalServicio() {
 }
 function cerrarModalServicio() { modalServicio.classList.add('hidden'); }
 
+let tapCount = 0, tapTimer = null;
 document.getElementById('headerBrand').addEventListener('click', () => {
-  // Volver al inicio: resetear todo
-  servicioSel = null; fechaSel = null; horarioSel = null;
-  document.getElementById('vistaHorario').style.display = 'none';
-  abrirModalServicio();
+  // 5 toques rápidos → modo admin
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => { tapCount = 0; }, 1500);
+  if (tapCount >= 5) {
+    tapCount = 0;
+    if (!isAdmin) {
+      const pin = prompt("PIN Admin:");
+      if (pin?.trim() === ADMIN_PIN) {
+        isAdmin = true;
+        document.getElementById('btnAdminPanel').classList.remove('hidden');
+      }
+    } else {
+      isAdmin = false;
+      document.getElementById('btnAdminPanel').classList.add('hidden');
+      document.getElementById('adminOverlay').classList.add('hidden');
+    }
+    return;
+  }
+  // 1 toque → volver al inicio
+  if (tapCount === 1) {
+    setTimeout(() => {
+      if (tapCount === 1) {
+        servicioSel = null; fechaSel = null; horarioSel = null;
+        document.getElementById('vistaHorario').style.display = 'none';
+        abrirModalServicio();
+      }
+    }, 300);
+  }
 });
 document.getElementById('cerrarServicioBtn').addEventListener('click', () => {
   if (!servicioSel) return; // si no eligió servicio aún, no cerrar
