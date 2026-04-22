@@ -1279,7 +1279,7 @@ function renderSlots(statusMap) {
     const el = document.getElementById(containerId);
     if (!slots.length) { el.innerHTML=''; return; }
     const pills = slots.map(({hm,tipo}) => {
-      const ocupado = tipo !== 'libre' || !slotDisponible(hm);
+      const ocupado = tipo !== 'libre'; // solo slots realmente reservados en Firestore
       const sel     = hm === horarioSel;
       return `<button class="slot-pill${ocupado?' ocupado':''}${sel?' selected':''}"
         data-hm="${hm}" ${ocupado?'disabled':''}>${hm} hs</button>`;
@@ -1306,6 +1306,11 @@ function renderSlots(statusMap) {
 }
 
 function elegirHorario(hm) {
+  if (!slotDisponible(hm)) {
+    const dur = servicioSel?.duracion ? formatDur(servicioSel.duracion) : '';
+    showToastError(`No hay tiempo suficiente para este servicio${dur ? ` (${dur})` : ''} en ese horario.`);
+    return;
+  }
   horarioSel = hm;
   document.getElementById('btnContinuar').disabled = false;
   renderSlots(new Map([...ocupadasSet].map(h=>[h,'reservado'])));
