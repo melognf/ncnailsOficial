@@ -494,6 +494,50 @@
     }
     .toast.show { transform: translateX(-50%) translateY(0); }
 
+    /* ── ADMIN ── */
+    .btn-admin {
+      background: #e74c3c; color: white; border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.8rem; font-size: 0.78rem; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+    }
+    .admin-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: flex-start; justify-content: center;
+      z-index: 200; padding: 1rem; overflow-y: auto;
+    }
+    .admin-overlay.hidden { display: none; }
+    .admin-panel {
+      background: white; border-radius: var(--radius);
+      width: 100%; max-width: 560px;
+      margin: auto;
+      animation: modalIn 0.2s ease;
+    }
+    .admin-header {
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .admin-header h3 { font-size: 1rem; font-weight: 700; }
+    .admin-body { padding: 0.75rem 1.25rem 1.25rem; }
+    .reserva-item {
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      padding: 0.85rem; margin-bottom: 0.65rem;
+    }
+    .reserva-item.cancelada { opacity: 0.45; }
+    .reserva-fecha { font-size: 0.72rem; font-weight: 700; color: var(--primary); margin-bottom: 0.3rem; }
+    .reserva-nombre { font-size: 0.9rem; font-weight: 700; }
+    .reserva-servicio { font-size: 0.8rem; color: var(--text-light); margin-bottom: 0.5rem; }
+    .reserva-footer { display: flex; justify-content: space-between; align-items: center; }
+    .reserva-tel { font-size: 0.78rem; color: var(--text-light); }
+    .btn-cancelar-res {
+      background: #fee2e2; color: #dc2626; border: none;
+      border-radius: var(--radius-sm); padding: 0.35rem 0.75rem;
+      font-size: 0.78rem; font-weight: 700; cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-cancelar-res:hover { background: #fca5a5; }
+    .admin-empty { text-align: center; color: var(--text-light); padding: 2rem 0; font-size: 0.88rem; }
+
     /* Spinner */
     .spinner {
       width: 17px; height: 17px;
@@ -524,7 +568,21 @@
       <div class="header-sub">NUEVO TURNO</div>
     </div>
   </div>
+  <button class="btn-admin hidden" id="btnAdminPanel">⚙ Admin</button>
 </header>
+
+<!-- ══ PANEL ADMIN ══ -->
+<div class="admin-overlay hidden" id="adminOverlay">
+  <div class="admin-panel">
+    <div class="admin-header">
+      <h3>📋 Reservas</h3>
+      <button class="btn-cerrar" id="cerrarAdminBtn" style="width:auto;padding:0.4rem 1rem;">Cerrar</button>
+    </div>
+    <div class="admin-body" id="adminBody">
+      <div class="admin-empty">Cargando reservas...</div>
+    </div>
+  </div>
+</div>
 
 <!-- ══ MODAL: ELEGIR SERVICIO ══ -->
 <div class="modal-overlay" id="modalServicio">
@@ -732,10 +790,100 @@ window.addEventListener('keydown', e => {
     e.preventDefault();
     if (!isAdmin) {
       const pin = prompt("PIN Admin:");
-      if (pin?.trim() === ADMIN_PIN) { isAdmin=true; console.log('[Admin] ON'); }
-    } else { isAdmin=false; console.log('[Admin] OFF'); }
+      if (pin?.trim() === ADMIN_PIN) {
+        isAdmin = true;
+        document.getElementById('btnAdminPanel').classList.remove('hidden');
+      }
+    } else {
+      isAdmin = false;
+      document.getElementById('btnAdminPanel').classList.add('hidden');
+      document.getElementById('adminOverlay').classList.add('hidden');
+    }
   }
 });
+
+document.getElementById('btnAdminPanel').addEventListener('click', abrirPanelAdmin);
+document.getElementById('cerrarAdminBtn').addEventListener('click', () =>
+  document.getElementById('adminOverlay').classList.add('hidden')
+);
+
+async function abrirPanelAdmin() {
+  document.getElementById('adminOverlay').classList.remove('hidden');
+  const body = document.getElementById('adminBody');
+  body.innerHTML = '<div class="admin-empty">Cargando reservas...</div>';
+
+  const { getFirestore, collection, query, orderBy, getDocs } = await fb();
+  const db = getFirestore();
+  const snap = await getDocs(query(collection(db,'reservas'), orderBy('fecha'), orderBy('hora')));
+
+  if (snap.empty) {
+    body.innerHTML = '<div class="admin-empty">No hay reservas aún.</div>';
+    return;
+  }
+
+  body.innerHTML = '';
+  snap.forEach(docSnap => {
+    const r = docSnap.data();
+    const id = docSnap.id;
+    const cancelada = r.estado === 'cancelada';
+    const d = isoToDate(r.fecha);
+    const fechaBonita = `${DIAS[d.getDay()].toUpperCase()} ${d.getDate()}/${pad2(d.getMonth()+1)}/${d.getFullYear()} · ${r.hora} hs`;
+
+    const div = document.createElement('div');
+    div.className = 'reserva-item' + (cancelada ? ' cancelada' : '');
+    div.innerHTML = `
+      <div class="reserva-fecha">${fechaBonita}</div>
+      <div class="reserva-nombre">${r.nombre}</div>
+      <div class="reserva-servicio">${r.servicio} · ${formatDur(r.duracionMin)}</div>
+      <div class="reserva-footer">
+        <span class="reserva-tel">📱 ${r.telefono}</span>
+        ${cancelada
+          ? '<span style="font-size:0.75rem;color:#9ca3af">Cancelada</span>'
+          : `<button class="btn-cancelar-res" data-id="${id}" data-fecha="${r.fecha}" data-hora="${r.hora}" data-dur="${r.duracionMin}">✕ Cancelar</button>`
+        }
+      </div>
+    `;
+    body.appendChild(div);
+  });
+
+  body.querySelectorAll('.btn-cancelar-res').forEach(btn => {
+    btn.addEventListener('click', () => cancelarReserva(btn, btn.dataset.id, btn.dataset.fecha, btn.dataset.hora, +btn.dataset.dur));
+  });
+}
+
+async function cancelarReserva(btn, id, fecha, hora, duracionMin) {
+  if (!confirm(`¿Cancelar reserva del ${fecha} a las ${hora}?`)) return;
+  btn.disabled = true;
+  btn.textContent = 'Cancelando...';
+
+  try {
+    const { getFirestore, collection, doc, writeBatch } = await fb();
+    const db = getFirestore();
+    const batch = writeBatch(db);
+
+    // Marcar reserva como cancelada
+    batch.update(doc(db,'reservas', id), { estado: 'cancelada' });
+
+    // Liberar todos los slots del turno
+    const n = Math.ceil(duracionMin / SLOT_MIN);
+    for (let i = 0; i < n; i++) {
+      const h = minToHM(hmToMin(hora) + i * SLOT_MIN);
+      batch.delete(doc(db,'slots',`${fecha}T${h}`));
+    }
+
+    await batch.commit();
+    showToastError('Turno cancelado. Slots liberados. ✓');
+    // Recargar el panel
+    await abrirPanelAdmin();
+    // Si hay slots cargados para esa fecha, refrescar
+    if (fechaSel === fecha && unsubSlots) await cargarSlots(fecha);
+  } catch(e) {
+    console.error(e);
+    showToastError('Error al cancelar. Intentá de nuevo.');
+    btn.disabled = false;
+    btn.textContent = '✕ Cancelar';
+  }
+}
 
 // ════ MODAL SERVICIOS ════
 const modalServicio = document.getElementById('modalServicio');
