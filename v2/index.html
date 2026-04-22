@@ -1404,7 +1404,7 @@ async function ejecutarConfirmacion() {
     const db = getFirestore();
 
     const resRef  = doc(collection(db,'reservas'));
-    const n = Math.ceil(servicioSel.duracion / SLOT_MIN);
+    const n = slotsNecesarios(); // usa la misma lógica que slotDisponible
     const slotRefs = Array.from({length: n}, (_, i) => {
       const h = minToHM(hmToMin(hora) + i * SLOT_MIN);
       return { ref: doc(db,'slots',`${fecha}T${h}`), hora: h };
