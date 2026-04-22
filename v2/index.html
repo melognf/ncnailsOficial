@@ -538,6 +538,66 @@
     .btn-cancelar-res:hover { background: #fca5a5; }
     .admin-empty { text-align: center; color: var(--text-light); padding: 2rem 0; font-size: 0.88rem; }
 
+    /* ── CALENDARIO ADMIN ── */
+    .cal-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .cal-nav button {
+      background: var(--primary-light); border: none; border-radius: var(--radius-sm);
+      width: 32px; height: 32px; font-size: 1rem; cursor: pointer;
+    }
+    .cal-nav span { font-weight: 700; font-size: 0.95rem; }
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      gap: 3px; margin-bottom: 1rem;
+    }
+    .cal-dow {
+      text-align: center; font-size: 0.65rem; font-weight: 700;
+      color: var(--text-light); padding: 0.2rem 0;
+    }
+    .cal-day {
+      text-align: center; padding: 0.35rem 0.1rem;
+      border-radius: var(--radius-sm); font-size: 0.82rem;
+      cursor: pointer; position: relative; font-weight: 500;
+      border: 1.5px solid transparent;
+    }
+    .cal-day:hover:not(.cal-empty):not(.cal-dom) { background: var(--primary-light); }
+    .cal-day.cal-empty { cursor: default; }
+    .cal-day.cal-dom { color: #ccc; cursor: default; }
+    .cal-day.cal-hoy { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+    .cal-day.cal-sel { background: var(--primary); color: white; }
+    .cal-day.cal-ocupado::after {
+      content: '';
+      display: block; width: 5px; height: 5px;
+      border-radius: 50%; background: #e74c3c;
+      margin: 1px auto 0;
+    }
+    .cal-day.cal-sel::after { background: white; }
+    .cal-detalle {
+      border-top: 1px solid var(--border); padding-top: 0.75rem;
+    }
+    .cal-detalle-titulo {
+      font-size: 0.82rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--primary);
+    }
+    .cal-slot-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.5rem 0.75rem; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); margin-bottom: 0.4rem; font-size: 0.82rem;
+    }
+    .cal-slot-info { flex: 1; }
+    .cal-slot-hora { font-weight: 700; margin-right: 0.5rem; }
+    .admin-tabs {
+      display: flex; gap: 0.5rem; margin-bottom: 0.75rem;
+    }
+    .admin-tab {
+      flex: 1; padding: 0.5rem; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); background: white;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      font-family: inherit; color: var(--text);
+    }
+    .admin-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
     /* Spinner */
     .spinner {
       width: 17px; height: 17px;
@@ -575,11 +635,16 @@
 <div class="admin-overlay hidden" id="adminOverlay">
   <div class="admin-panel">
     <div class="admin-header">
-      <h3>📋 Reservas</h3>
+      <h3>⚙ Admin</h3>
       <button class="btn-cerrar" id="cerrarAdminBtn" style="width:auto;padding:0.4rem 1rem;">Cerrar</button>
     </div>
     <div class="admin-body" id="adminBody">
-      <div class="admin-empty">Cargando reservas...</div>
+      <div class="admin-tabs">
+        <button class="admin-tab active" id="tabCalendario">📅 Calendario</button>
+        <button class="admin-tab" id="tabLista">📋 Lista</button>
+      </div>
+      <div id="vistaCalendario"></div>
+      <div id="vistaLista" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -806,55 +871,148 @@ document.getElementById('btnAdminPanel').addEventListener('click', abrirPanelAdm
 document.getElementById('cerrarAdminBtn').addEventListener('click', () =>
   document.getElementById('adminOverlay').classList.add('hidden')
 );
+document.getElementById('tabCalendario').addEventListener('click', () => switchAdminTab('calendario'));
+document.getElementById('tabLista').addEventListener('click',      () => switchAdminTab('lista'));
+
+function switchAdminTab(tab) {
+  document.getElementById('vistaCalendario').style.display = tab==='calendario' ? '' : 'none';
+  document.getElementById('vistaLista').style.display      = tab==='lista'      ? '' : 'none';
+  document.getElementById('tabCalendario').classList.toggle('active', tab==='calendario');
+  document.getElementById('tabLista').classList.toggle('active',      tab==='lista');
+}
+
+let adminReservas = [];
+let calYear, calMonth, calFechaSel = null;
 
 async function abrirPanelAdmin() {
   document.getElementById('adminOverlay').classList.remove('hidden');
-  const body = document.getElementById('adminBody');
-  body.innerHTML = '<div class="admin-empty">Cargando reservas...</div>';
+  switchAdminTab('calendario');
 
   const { getFirestore, collection, getDocs } = await fb();
   const db = getFirestore();
   const snap = await getDocs(collection(db,'reservas'));
 
-  if (snap.empty) {
-    body.innerHTML = '<div class="admin-empty">No hay reservas aún.</div>';
-    return;
+  adminReservas = [];
+  snap.forEach(d => adminReservas.push({ id: d.id, ...d.data() }));
+  adminReservas = adminReservas
+    .filter(r => r.estado !== 'cancelada')
+    .sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+
+  const hoy = new Date();
+  calYear  = hoy.getFullYear();
+  calMonth = hoy.getMonth();
+  calFechaSel = null;
+
+  renderCalendario();
+  renderListaAdmin();
+}
+
+function renderCalendario() {
+  const el = document.getElementById('vistaCalendario');
+  const ocupadasPorFecha = {};
+  adminReservas.forEach(r => {
+    if (!ocupadasPorFecha[r.fecha]) ocupadasPorFecha[r.fecha] = [];
+    ocupadasPorFecha[r.fecha].push(r);
+  });
+
+  const hoy = new Date();
+  const hoyISO = `${hoy.getFullYear()}-${pad2(hoy.getMonth()+1)}-${pad2(hoy.getDate())}`;
+  const mesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const primerDia = new Date(calYear, calMonth, 1).getDay();
+  const diasEnMes = new Date(calYear, calMonth+1, 0).getDate();
+
+  let html = `
+    <div class="cal-nav">
+      <button id="calPrev">‹</button>
+      <span>${mesNombres[calMonth]} ${calYear}</span>
+      <button id="calNext">›</button>
+    </div>
+    <div class="cal-grid">
+      ${['D','L','M','M','J','V','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}
+      ${Array(primerDia).fill('<div class="cal-day cal-empty"></div>').join('')}
+  `;
+
+  for (let day = 1; day <= diasEnMes; day++) {
+    const iso = `${calYear}-${pad2(calMonth+1)}-${pad2(day)}`;
+    const dow = new Date(calYear, calMonth, day).getDay();
+    const esDom = dow === 0;
+    const esHoy = iso === hoyISO;
+    const esSel = iso === calFechaSel;
+    const tieneRes = ocupadasPorFecha[iso]?.length > 0;
+    let cls = 'cal-day';
+    if (esDom) cls += ' cal-dom';
+    if (esHoy) cls += ' cal-hoy';
+    if (esSel) cls += ' cal-sel';
+    if (tieneRes && !esDom) cls += ' cal-ocupado';
+    html += `<div class="${cls}" data-iso="${iso}">${day}</div>`;
   }
 
-  const docs = [];
-  snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
-  docs.sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  html += '</div>';
 
-  const activas = docs.filter(r => r.estado !== 'cancelada');
-  if (!activas.length) {
-    body.innerHTML = '<div class="admin-empty">No hay reservas activas.</div>';
-    return;
+  if (calFechaSel && ocupadasPorFecha[calFechaSel]) {
+    const d = isoToDate(calFechaSel);
+    const titulo = `${DIAS[d.getDay()]} ${d.getDate()}/${pad2(d.getMonth()+1)}`;
+    const resDelDia = ocupadasPorFecha[calFechaSel];
+    html += `<div class="cal-detalle">
+      <div class="cal-detalle-titulo">📅 ${titulo} — ${resDelDia.length} turno(s)</div>`;
+    resDelDia.forEach(r => {
+      html += `<div class="cal-slot-row">
+        <div class="cal-slot-info">
+          <span class="cal-slot-hora">${r.hora} hs</span>
+          <span>${r.nombre}</span>
+          <div style="font-size:0.75rem;color:var(--text-light)">${r.servicio}</div>
+        </div>
+        <button class="btn-cancelar-res" data-id="${r.id}" data-fecha="${r.fecha}" data-hora="${r.hora}" data-dur="${r.duracionMin}">✕</button>
+      </div>`;
+    });
+    html += '</div>';
+  } else if (calFechaSel) {
+    html += `<div class="cal-detalle"><div class="admin-empty" style="padding:1rem 0">Sin reservas este día.</div></div>`;
   }
 
-  body.innerHTML = '';
-  activas.forEach(res => {
-    const cancelada = false;
+  el.innerHTML = html;
+
+  el.querySelectorAll('.cal-day:not(.cal-empty):not(.cal-dom)').forEach(day => {
+    day.addEventListener('click', () => {
+      calFechaSel = calFechaSel === day.dataset.iso ? null : day.dataset.iso;
+      renderCalendario();
+    });
+  });
+  el.querySelector('#calPrev').addEventListener('click', () => {
+    calMonth--; if (calMonth<0){calMonth=11;calYear--;} renderCalendario();
+  });
+  el.querySelector('#calNext').addEventListener('click', () => {
+    calMonth++; if (calMonth>11){calMonth=0;calYear++;} renderCalendario();
+  });
+  el.querySelectorAll('.btn-cancelar-res').forEach(btn => {
+    btn.addEventListener('click', () => cancelarReserva(btn, btn.dataset.id, btn.dataset.fecha, btn.dataset.hora, +btn.dataset.dur));
+  });
+}
+
+function renderListaAdmin() {
+  const el = document.getElementById('vistaLista');
+  if (!adminReservas.length) {
+    el.innerHTML = '<div class="admin-empty">No hay reservas activas.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  adminReservas.forEach(res => {
     const d = isoToDate(res.fecha);
     const fechaBonita = `${DIAS[d.getDay()].toUpperCase()} ${d.getDate()}/${pad2(d.getMonth()+1)}/${d.getFullYear()} · ${res.hora} hs`;
-
     const div = document.createElement('div');
-    div.className = 'reserva-item' + (cancelada ? ' cancelada' : '');
+    div.className = 'reserva-item';
     div.innerHTML = `
       <div class="reserva-fecha">${fechaBonita}</div>
       <div class="reserva-nombre">${res.nombre}</div>
       <div class="reserva-servicio">${res.servicio} · ${formatDur(res.duracionMin)}</div>
       <div class="reserva-footer">
         <span class="reserva-tel">📱 ${res.telefono}</span>
-        ${cancelada
-          ? '<span style="font-size:0.75rem;color:#9ca3af">Cancelada</span>'
-          : `<button class="btn-cancelar-res" data-id="${res.id}" data-fecha="${res.fecha}" data-hora="${res.hora}" data-dur="${res.duracionMin}">✕ Cancelar</button>`
-        }
+        <button class="btn-cancelar-res" data-id="${res.id}" data-fecha="${res.fecha}" data-hora="${res.hora}" data-dur="${res.duracionMin}">✕ Cancelar</button>
       </div>
     `;
-    body.appendChild(div);
+    el.appendChild(div);
   });
-
-  body.querySelectorAll('.btn-cancelar-res').forEach(btn => {
+  el.querySelectorAll('.btn-cancelar-res').forEach(btn => {
     btn.addEventListener('click', () => cancelarReserva(btn, btn.dataset.id, btn.dataset.fecha, btn.dataset.hora, +btn.dataset.dur));
   });
 }
@@ -880,10 +1038,8 @@ async function cancelarReserva(btn, id, fecha, hora, duracionMin) {
     }
 
     await batch.commit();
-    showToastError('Turno cancelado. Slots liberados. ✓');
-    // Recargar el panel
+    mostrarToast('Turno cancelado. Slots liberados ✓');
     await abrirPanelAdmin();
-    // Si hay slots cargados para esa fecha, refrescar
     if (fechaSel === fecha && unsubSlots) await cargarSlots(fecha);
   } catch(e) {
     console.error(e);
