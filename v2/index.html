@@ -121,7 +121,20 @@
       padding: 1.25rem 1.5rem 0.75rem;
       border-bottom: 1px solid var(--border);
     }
-    .modal-header h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .modal-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .modal-header h2 { font-size: 1rem; font-weight: 700; margin-bottom: 0; }
+    .modal-logo {
+      height: 32px;
+      width: auto;
+      object-fit: contain;
+      flex-shrink: 0;
+      border-radius: 4px;
+    }
     .search-bar { display: flex; gap: 0.5rem; }
     .search-bar input {
       flex: 1;
@@ -215,6 +228,74 @@
     }
     .btn-cerrar:hover { background: #e5e7eb; }
     .no-items { font-size: 0.85rem; color: var(--text-light); text-align: center; padding: 1.5rem 0; }
+
+    /* ── BOTÓN FOTOS EN CARD ── */
+    .btn-fotos {
+      background: var(--primary-light);
+      border: 1.5px solid var(--border);
+      border-radius: 50%;
+      width: 28px; height: 28px; min-width: 28px;
+      font-size: 1.15rem; font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--primary);
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-fotos:hover { background: var(--primary); color: white; }
+
+    /* ── GALERÍA DE FOTOS ── */
+    #modalGaleria { z-index: 200; }
+    .modal-galeria {
+      background: white;
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 440px;
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      animation: modalIn 0.2s ease;
+    }
+    .galeria-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .galeria-header h3 { font-size: 0.95rem; font-weight: 700; flex: 1; }
+    .galeria-header .btn-x {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.1rem; color: var(--text-light); padding: 0.2rem;
+    }
+    .galeria-body {
+      flex: 1; overflow-y: auto; padding: 0.85rem;
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem;
+    }
+    .galeria-foto {
+      position: relative; aspect-ratio: 1;
+      border-radius: var(--radius-sm); overflow: hidden;
+      background: var(--bg);
+    }
+    .galeria-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .btn-del-foto {
+      position: absolute; top: 5px; right: 5px;
+      background: rgba(220,38,38,0.88); color: white;
+      border: none; border-radius: 50%;
+      width: 22px; height: 22px; font-size: 0.7rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .galeria-footer { padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); }
+    .btn-upload-foto {
+      display: block; width: 100%; padding: 0.65rem;
+      background: var(--primary); color: white; border: none;
+      border-radius: var(--radius-sm); cursor: pointer;
+      font-size: 0.88rem; font-weight: 600; font-family: inherit;
+      text-align: center;
+    }
+    .no-fotos {
+      grid-column: 1/-1; text-align: center;
+      color: var(--text-light); padding: 2rem 0; font-size: 0.85rem;
+    }
+    .upload-progress { font-size: 0.78rem; color: var(--text-light); text-align: center; margin-top: 0.4rem; }
 
     /* ── MAIN CONTENT ── */
     .main-content {
@@ -614,6 +695,7 @@
       .main-content { padding: 1rem 0.75rem 5rem; }
       .day-pill .dd { font-size: 0.95rem; }
     }
+
   </style>
 </head>
 <body>
@@ -653,7 +735,11 @@
 <div class="modal-overlay" id="modalServicio">
   <div class="modal-servicios">
     <div class="modal-header">
-      <h2>🔔 Elegir servicio</h2>
+      <div class="modal-header-top">
+        <h2>🔔 Elegir servicio</h2>
+        <img src="imagenes/nc nails.jpg" class="modal-logo" alt="NC Nails"
+             id="modalLogo" onerror="this.style.display='none'">
+      </div>
       <div class="search-bar">
         <input type="text" id="buscadorServicio" placeholder="Nombre del servicio...">
         <button id="btnBuscar">🔍</button>
@@ -664,6 +750,18 @@
     <div class="modal-footer" id="footerServicio" style="display:none">
       <button class="btn-cerrar" id="cerrarServicioBtn">← Volver</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: GALERÍA DE FOTOS ══ -->
+<div class="modal-overlay hidden" id="modalGaleria">
+  <div class="modal-galeria">
+    <div class="galeria-header">
+      <h3 id="galeriaTitulo">Fotos del servicio</h3>
+      <button class="btn-x" id="cerrarGaleriaBtn">✕</button>
+    </div>
+    <div class="galeria-body" id="galeriaBody"></div>
+    <div class="galeria-footer hidden" id="galeriaFooterAdmin"></div>
   </div>
 </div>
 
@@ -792,20 +890,20 @@
 
 // ════ DATOS ════
 const SERVICIOS = [
-  { id:1,  nombre:'Manicuría americana',                              precio:4500,  duracion:45,  categoria:'Manicuría',    emoji:'💅', img:'' },
-  { id:2,  nombre:'Esmaltado tradicional',                            precio:10000, duracion:60,  categoria:'Manicuría',    emoji:'💅', img:'' },
-  { id:3,  nombre:'Esmaltado semipermanente',                         precio:16000, duracion:90,  categoria:'Manicuría',    emoji:'✨', img:'' },
-  { id:4,  nombre:'Nivelación + esmaltado semipermanente',            precio:20000, duracion:90,  categoria:'Nivelación',   emoji:'💎', img:'' },
-  { id:5,  nombre:'Capping con acrygel/gel + semi hasta largo 2',     precio:19000, duracion:120, categoria:'Kapping',      emoji:'💎', img:'' },
-  { id:6,  nombre:'Extensiones de Soft gel hasta largo 3',            precio:22000, duracion:150, categoria:'Extensiones',  emoji:'🌟', img:'' },
-  { id:7,  nombre:'Esculpidas hasta largo 3',                         precio:23000, duracion:150, categoria:'Esculpidas',   emoji:'🌟', img:'' },
-  { id:8,  nombre:'French esmaltada por uña',                         precio:300,   duracion:0,   categoria:'Nail Art',     emoji:'🎨', img:'' },
-  { id:9,  nombre:'Diseño por uña',                                   precio:200,   duracion:0,   categoria:'Nail Art',     emoji:'🎨', img:'' },
-  { id:10, nombre:'Efectos por uña',                                  precio:300,   duracion:0,   categoria:'Nail Art',     emoji:'🎨', img:'' },
-  { id:11, nombre:'Press on personalizadas base',                     precio:15000, duracion:0,   categoria:'Press On',     emoji:'💅', img:'' },
-  { id:12, nombre:'Retiro de semipermanente de otro salón',           precio:8000,  duracion:45,  categoria:'Retiro',       emoji:'🗑', img:'' },
-  { id:13, nombre:'Retiro de capping de otro salón',                  precio:12000, duracion:60,  categoria:'Retiro',       emoji:'🗑', img:'' },
-  { id:14, nombre:'Retiro de uñas esculpidas/soft gel de otro salón', precio:12000, duracion:75,  categoria:'Retiro',       emoji:'🗑', img:'' },
+  { id:1,  nombre:'Manicuría americana',                              precio:4500,  duracion:45,  categoria:'Manicuría',    imgs:['',''] },
+  { id:2,  nombre:'Esmaltado tradicional',                            precio:10000, duracion:60,  categoria:'Manicuría',    imgs:['',''] },
+  { id:3,  nombre:'Esmaltado semipermanente',                         precio:16000, duracion:90,  categoria:'Manicuría',    imgs:['',''] },
+  { id:4,  nombre:'Nivelación + esmaltado semipermanente',            precio:20000, duracion:90,  categoria:'Nivelación',   imgs:['',''] },
+  { id:5,  nombre:'Capping con acrygel/gel + semi hasta largo 2',     precio:19000, duracion:120, categoria:'Capping',      imgs:['',''] },
+  { id:6,  nombre:'Extensiones de Soft gel hasta largo 3',            precio:22000, duracion:150, categoria:'Extensiones',  imgs:['',''] },
+  { id:7,  nombre:'Esculpidas hasta largo 3',                         precio:23000, duracion:150, categoria:'Esculpidas',   imgs:['',''] },
+  { id:8,  nombre:'French esmaltada por uña',                         precio:300,   duracion:0,   categoria:'Nail Art',     imgs:['',''] },
+  { id:9,  nombre:'Diseño por uña',                                   precio:200,   duracion:0,   categoria:'Nail Art',     imgs:['',''] },
+  { id:10, nombre:'Efectos por uña',                                  precio:300,   duracion:0,   categoria:'Nail Art',     imgs:['',''] },
+  { id:11, nombre:'Press on personalizadas base',                     precio:15000, duracion:0,   categoria:'Press On',     imgs:['',''] },
+  { id:12, nombre:'Retiro de semipermanente de otro salón',           precio:8000,  duracion:45,  categoria:'Retiro',       imgs:['',''] },
+  { id:13, nombre:'Retiro de capping de otro salón',                  precio:12000, duracion:60,  categoria:'Retiro',       imgs:['',''] },
+  { id:14, nombre:'Retiro de uñas esculpidas/soft gel de otro salón', precio:12000, duracion:75,  categoria:'Retiro',       imgs:['',''] },
 ];
 
 // ════ CONFIG ════
@@ -1069,8 +1167,8 @@ function abrirModalServicio() {
 function cerrarModalServicio() { modalServicio.classList.add('hidden'); }
 
 let tapCount = 0, tapTimer = null;
-document.getElementById('headerBrand').addEventListener('click', () => {
-  // 5 toques rápidos → modo admin
+
+function handleAdminTap() {
   tapCount++;
   clearTimeout(tapTimer);
   tapTimer = setTimeout(() => { tapCount = 0; }, 1500);
@@ -1087,8 +1185,12 @@ document.getElementById('headerBrand').addEventListener('click', () => {
       document.getElementById('btnAdminPanel').classList.add('hidden');
       document.getElementById('adminOverlay').classList.add('hidden');
     }
-    return;
   }
+}
+
+document.getElementById('modalLogo').addEventListener('click', handleAdminTap);
+document.getElementById('headerBrand').addEventListener('click', () => {
+  handleAdminTap();
   // 1 toque → volver al inicio
   if (tapCount === 1) {
     setTimeout(() => {
@@ -1136,20 +1238,25 @@ function renderServicios() {
   }
   el.innerHTML = lista.map(s => `
     <div class="servicio-card" data-id="${s.id}">
-      <div class="servicio-img">${s.img ? `<img src="${s.img}" alt="${s.nombre}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.textContent='${s.emoji}'">` : s.emoji}</div>
       <div class="servicio-info">
         <div class="servicio-nombre">${s.nombre}</div>
-        <div class="servicio-tipo">Presencial</div>
       </div>
       <div class="servicio-meta">
         <div class="servicio-precio">${formatARS(s.precio)}</div>
         <div class="servicio-dur">${formatDur(s.duracion)}</div>
       </div>
+      <button class="btn-fotos" data-id="${s.id}" data-nombre="${s.nombre}" title="Ver fotos">+</button>
     </div>
   `).join('');
   el.querySelectorAll('.servicio-card').forEach(card => {
     card.addEventListener('click', () => {
       elegirServicio(SERVICIOS.find(s => s.id === +card.dataset.id));
+    });
+  });
+  el.querySelectorAll('.btn-fotos').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      abrirGaleria(+btn.dataset.id, btn.dataset.nombre);
     });
   });
 }
@@ -1493,6 +1600,34 @@ function showToastError(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 4000);
 }
+
+// ════ GALERÍA DE FOTOS ════
+function abrirGaleria(servicioId, nombre) {
+  const servicio = SERVICIOS.find(s => s.id === servicioId);
+  const fotos = (servicio?.imgs || []).filter(f => f);
+  document.getElementById('galeriaTitulo').textContent = nombre;
+  const body = document.getElementById('galeriaBody');
+  if (!fotos.length) {
+    body.innerHTML = '<div class="no-fotos">Sin fotos aún.</div>';
+  } else {
+    body.innerHTML = fotos.map((src, i) => `
+      <div class="galeria-foto">
+        <img src="${src}" alt="Foto ${i+1}" loading="lazy">
+      </div>
+    `).join('');
+  }
+  document.getElementById('galeriaFooterAdmin').classList.add('hidden');
+  document.getElementById('modalGaleria').classList.remove('hidden');
+}
+
+function cerrarGaleria() {
+  document.getElementById('modalGaleria').classList.add('hidden');
+}
+
+document.getElementById('cerrarGaleriaBtn').addEventListener('click', cerrarGaleria);
+document.getElementById('modalGaleria').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalGaleria')) cerrarGaleria();
+});
 
 // ════ INIT ════
 abrirModalServicio();
